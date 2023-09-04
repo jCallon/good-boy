@@ -68,7 +68,7 @@ async def rng_pick(
     if len(items_to_pick_from) < 2:
         error_message += f"\nPlease give me a reasonable number of items to choose from (more than 1)."
     if number_of_items_to_pick > len(items_to_pick_from) and repeats_allowed == False:
-        error_message += f"\nCannot pick {number} unique items from a list of {len(items)} items."
+        error_message += f"\nCannot pick {number_of_items_to_pick} unique items from a list of {len(items_to_pick_from)} items."
 
     # If the user's arguments weren't valid, give them verbose error messages and an example to help them
     if error_message != "":
