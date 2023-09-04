@@ -1,0 +1,16 @@
+# Set up and work in a virtual environment
+python3 -m venv VENV
+bash ./VENV/bin/activate
+
+# Install initial dependencies
+pip uninstall discord.py
+pip install py-cord
+pip install "py-cord[voice]"
+pip install python-dotenv
+
+# Make a file to read your bot's token from
+touch .env
+# TOKEN = $my_bot_token
+
+# Run the bot
+python3 main.py
