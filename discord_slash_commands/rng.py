@@ -22,8 +22,8 @@ rng_slash_command_group = discord.SlashCommandGroup("rng", "Random number genera
 async def rng_roll(
     ctx,
     is_whole: discord.Option(bool, description="Whether the number rolled should be whole."),
-    minimum_value: discord.Option(int, description="The lowest number that can be rolled, inclusive."),
-    maximum_value: discord.Option(int, description="The highest number that can be rolled, inclusive."),
+    minimum_value: discord.Option(float, description="The lowest number that can be rolled, inclusive."),
+    maximum_value: discord.Option(float, description="The highest number that can be rolled, inclusive."),
 ):
     # Determine if the arguments are valid
     error_message = ""
@@ -36,7 +36,7 @@ async def rng_roll(
     if error_message != "":
         error_message += f"\nHere's an example command."
         error_message += f"\nSimulate rolling a 6 sided-die by rolling a whole number between (and including) 1 and 6."
-        error_message += f"\n`\\rng roll True 1 6\"`"
+        error_message += f"\n`\\rng roll True 1 6`"
         await ctx.respond(error_message)
         return False
 
@@ -80,14 +80,19 @@ async def rng_pick(
     
     # If we got here, the arguments are valid and safe to act upon
     # Make a list of items picked
-    items_picked = []
+    items_picked_list = []
     while number_of_items_to_pick > 0:
         index_of_item_picked = random.randint(0, len(items_to_pick_from) - 1)
         if repeats_allowed == True:
-            items_picked += items_to_pick_from[index_of_item_picked]
+            items_picked_list.append(items_to_pick_from[index_of_item_picked])
         if repeats_allowed == False:
-            items_picked += items_to_pick_from.pop(index_of_item_picked)
+            items_picked_list.append(items_to_pick_from.pop(index_of_item_picked))
+        number_of_items_to_pick -= 1
 
     # Give the user back the list of items picked
-    await ctx.respond(*items_picked, sep=", ")
+    items_picked_str = ""
+    items_picked_str = items_picked_list.pop(0)
+    while len(items_picked_list) > 0:
+        items_picked_str += ", " + items_picked_list.pop(0)
+    await ctx.respond(items_picked_str)
     return True
