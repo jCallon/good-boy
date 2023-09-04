@@ -5,11 +5,10 @@ Discord's 'new' slash-command API will give you a list of commands I support and
 But, here's a high level overview of the commands I currently support.
 
 ## Currently supported
-
-| Command                                 | Description                         |
-| --------------------------------------- | ----------------------------------- |
-| `\rng roll $discrete $min $max`         | Roll a random number.               |
-| `\rng pick $number $exclusive $options` | Pick one or more items from a list. |
+| Command                               | Description                         |
+| ------------------------------------- | ----------------------------------- |
+| `\rng roll $whole $min $max`          | Roll a random number.               |
+| `\rng pick $number $repeats $options` | Pick one or more items from a list. |
 
 ## Backlog
 | Command                       | Description                                         |
