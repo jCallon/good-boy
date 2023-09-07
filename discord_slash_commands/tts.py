@@ -30,6 +30,18 @@ class TTSUserPreference:
         # The IETF code of the language the user prefers their TTS to speak in, for example, en or es
         self.language = language
 
+    # Return whether this instance of TTSUserInfo has matching members with new_tts_user_preference
+    def equals(self, new_tts_user_preference) -> bool:
+        result = True
+        result = result and (self.user_id == new_tts_user_preference.user_id)
+        result = result and (self.spoken_name == new_tts_user_preference.spoken_name)
+        result = result and (self.language == new_tts_user_preference.language)
+        return result
+
+    # Return a copy of this TTSUserPreference
+    def copy(self):
+        return TTSUserPreference(self.user_id, self.spoken_name, self.language)
+
     # Convert class to JSON format
     def to_dict(self) -> dict:
         return {
@@ -48,10 +60,7 @@ class TTSUserPreference:
 
 # Define the information
 class TTSUserPreferenceBank:
-    def __init__(
-        self,
-        file_name: str,
-    ):
+    def __init__(self, file_name: str):
         # Establish persistent memory (a file to read from and write to)
         self.json_list = JSONList(file_name)
         # Read raw the contents of persisitent memory, parse them into a list of TTSUserPreference
@@ -84,15 +93,15 @@ class TTSUserPreferenceBank:
             new_entry.from_dict(raw_json_dict)
             self.tts_user_preference_list.append(new_entry)
 
-    # Get a user's TTS preferences if they have them
+    # Get a (a copy of the) user's TTS preferences if they have any
     def get_tts_user_preference(self, member: discord.Member) -> TTSUserPreference:
         # Sync with latest changes
         self.sync()
 
-        # If the user has specified their preference, find it and return it
+        # If the user has specified their preference, find it and return a copy (not a reference)
         for tts_user_preference in self.tts_user_preference_list:
             if tts_user_preference.user_id == member.id:
-                return tts_user_preference
+                return tts_user_preference.copy()
 
         # This user has not specified their preference, give them default
         return TTSUserPreference(member.id, member.display_name, 'en')
@@ -105,9 +114,10 @@ class TTSUserPreferenceBank:
         # If the user had previous preference, remove it, unless it matches the new preference
         for i in range(len(self.tts_user_preference_list)):
             if self.tts_user_preference_list[i].user_id == new_tts_user_preference.user_id:
-                if self.tts_user_preference_list[i] == new_tts_user_preference:
+                if self.tts_user_preference_list[i].equals(new_tts_user_preference):
                     return False
                 self.tts_user_preference_list.pop(i)
+                i -= 1
 
         # Add new user preference
         self.tts_user_preference_list.append(new_tts_user_preference)
@@ -122,6 +132,15 @@ tts_user_preference_bank = TTSUserPreferenceBank("tts")
 
 # Create slash command group
 tts_slash_command_group = discord.SlashCommandGroup("tts", "Text to speech commands")
+
+
+
+# Create a function to make queuing multiple audio sources after each other possible
+def play_next_audio_source(error_exception, ctx, previous_audio_source, next_audio_source):
+    if error_exception != None:
+        print(f"Encountered error {error_exception} while trying to play {previous_audio_source}.")
+        return
+    ctx.bot.play(next_audio_source)
 
 
 
@@ -147,9 +166,9 @@ async def tts_play(
         return False
 
     # Determine if the bot state is valid
-    if len(bot.voice_clients) == 0:
+    if len(ctx.voice_clients) == 0:
         error_message += f"\nI am not in a voice chat. Please connect me to a voice channel to speak in via \\voice join."
-    if len(bot.voice_clients > 0) and bot.voice_clients[0].is_playing():
+    if len(ctx.voice_clients > 0) and bot.voice_clients[0].is_playing():
         error_message += f"\nI am already playing audio. Please wait until I finish playing my current audio, or stop it via \\voice stop."
     tts_user_preference = tts_user_preference_bank.get_tts_user_preference(ctx.author)
     if len(tts_user_preference.spoken_name) > 20:
@@ -161,11 +180,23 @@ async def tts_play(
     if error_message != "":
         await ctx.respond(error_message)
         return False
-        
+
     # If we got here, the arguments and bot state should be valid and safe to act upon
     # Get the sound for the text and send it to voice chat
-    # TODO
-    await ctx.respond("This has not been implemented.")
+
+    spoken_name_mp3_file_like_object = BytesIO()
+    spoken_name = gtts.tts.gTTS(text=tts_user_preference.spoken_name, lang=tts_user_preference.language)
+    spoken_name.write_to_fp(spoken_name_file_like_object)
+    spoken_name_discord_ffmpeg_audio_source = discord.FFmpegAudio(spoken_name_mp3_file_like_object)
+
+    spoken_text_mp3_file_like_object = BytesIO()
+    spoken_text = gtts.tts.gTTS(text=text_to_say, lang=tts_user_preference.language)
+    spoken_text.write_to_fp(spoken_text_file_like_object)
+    spoken_text_discord_ffmpeg_audio_source = discord.FFmpegAudio(spoken_text_mp3_file_like_object)
+
+    bot.play(spoken_name_discord_ffmpeg_audio_source, play_next_audio_source(error_exception, ctx, previous_audio_source, next_audio_source))
+
+    await ctx.respond(f"I'm trying to say \"{text_to_say}\".")
     return True
 
 

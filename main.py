@@ -27,6 +27,8 @@ async def on_ready():
 import discord_slash_commands
 from discord_slash_commands import rng as rng_slash_commands
 discord_bot.add_application_command(rng_slash_commands.rng_slash_command_group)
+from discord_slash_commands import voice as voice_slash_commands
+discord_bot.add_application_command(voice_slash_commands.voice_slash_command_group)
 from discord_slash_commands import tts as tts_slash_commands
 discord_bot.add_application_command(tts_slash_commands.tts_slash_command_group)
 
