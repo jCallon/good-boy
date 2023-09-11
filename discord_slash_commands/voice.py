@@ -29,11 +29,11 @@ async def voice_join(ctx):
 
     # If we got here, the user state is valid and safe to act upon
     # Leave all other voice clients and join the user's, TODO playing a high bark on entry
-    while len(ctx.voice_clients) > 0:
-        await ctx.voice_clients[0].disconnect()
-    ctx.author.voice.channel.connect()
+    if ctx.voice_client:
+        await ctx.voice_client.disconnect()
+    await ctx.author.voice.channel.connect()
 
-    ctx.respond(f"I have tried to connect to your voice channel.")
+    await ctx.respond(f"I have tried to connect to your voice channel.")
     return True
 
 
@@ -42,18 +42,18 @@ async def voice_join(ctx):
 async def voice_leave(ctx):
     # Determine if the user and bot state is valid
     # If the user or bot's state isn't valid, give them verbose error messages
-    if len(ctx.voice_clients) == 0:
+    if not ctx.voice_client:
         await ctx.respond(f"I am already not in a voice channel.")
         return False
-    if not (ctx.author.voice and ctx.author.voice.channel and ctx.author.voice.channel == ctx.voice_clients[0].channel):
+    if not (ctx.author.voice and ctx.author.voice.channel and ctx.author.voice.channel == ctx.voice_client.channel):
         await ctx.respond(f"Please join the voice channel you wish for me to leave.")
         return False
 
     # If we got here, the user and bot state is valid and safe to act upon
     # Leave the current voice channel, TODO giving a low bark on exit
-    await ctx.voice_clients[0].disconnect()
+    await ctx.voice_client.disconnect()
 
-    ctx.respond(f"I have tried to disconnect from your voice channel.")
+    await ctx.respond(f"I have tried to disconnect from your voice channel.")
     return True
 
 
@@ -63,16 +63,19 @@ async def voice_leave(ctx):
 async def voice_stop(ctx):
     # Determine if the user and bot state is valid
     # If the user or bot's state isn't valid, give them verbose error messages
-    if len(ctx.voice_clients) == 0:
-        await ctx.respond(f"I am not in a voice channelm I have no audio to stop.")
+    if not ctx.voice_client:
+        await ctx.respond(f"I am not in a voice channel, I have no audio to stop.")
         return False
-    if not (ctx.author.voice and ctx.author.voice.channel and ctx.author.voice.channel == ctx.voice_clients[0].channel):
+    if not (ctx.author.voice.channel and ctx.author.voice.channel == ctx.voice_client.channel):
         await ctx.respond(f"Please join the voice channel you wish for me to stop playing audio in.")
+        return False
+    if not ctx.voice_client.is_playing():
+        await ctx.respond(f"I am already playing nothing.")
         return False
 
     # If we got here, the user and bot state is valid and safe to act upon
     # Stop the playing of the audio currently playing in voice chat
-    await ctx.voice_clients[0].stop()
+    await ctx.voice_client.stop()
 
-    ctx.respond(f"I have tried to stop the audio I am playing in your voice channel.")
+    await ctx.respond(f"I have tried to stop the audio I am playing in your voice channel.")
     return True
