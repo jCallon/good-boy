@@ -17,12 +17,12 @@ import time
 
 # To be usable by JSONList, a list_type_instance must have (and redefine) the functions defined by this purely virtual type
 class JSONListItem:
-    # Convert member variables into dict
-    def from_dict(self, dictionary: dict, optimize_for_space: bool = False) -> None:
+    # Convert dict into member variables
+    def to_dict(self) -> dict:
         raise NotImplementedError
 
-    # Convert dict into member variables
-    def to_dict(self, optimize_for_space: bool = False) -> dict:
+    # Convert member variables into dict
+    def from_dict(self, dictionary: dict) -> None:
         raise NotImplementedError
 
     # Return a copy of this JSTONListItem (return by value instead of by reference)
@@ -58,8 +58,8 @@ class JSONList:
         # Populate self.list and self.list_type_instance
         self.read()
 
-    # TODO: comment
-    def file_size_is_too_big(self, new_file_size_in_bytes: int):
+    # Return whether the length of data wishing to be stored is allowable, give a warning if it's close
+    def file_size_is_too_big(self, new_file_size_in_bytes: int) -> bool:
         # Check if the file size is at or near threshold
         if new_file_size_in_bytes * 0.75 > self.max_file_size_in_bytes:
             # Give the bot owner a warning with possible solutions
@@ -67,90 +67,77 @@ class JSONList:
             print(f"Please pause or kill the bot and do one of these 3 options:")
             print(f" 1. Make a backup and manually remove uneeded info")
             print(f" 2. Increase the max file size")
-            print(f" 3. Use the optimized versions of to_dict and from_dict methods")
+            print(f" 3. Make hyper-optimized versions of to_dict and from_dict methods")
             if file_size_in_bytes > self.max_file_size_in_bytes:
-                # Refuse to read a file bigger than self.max_file_size_in_bytes
+                # Refuse to read or write a file bigger than self.max_file_size_in_bytes
                 return True
         return False
 
     # Read the contents of self.file_name (should be a list of dicts)
-    # TODO: check directory exists
     def read(self) -> bool:
-        # Instantiate local variables
+        # If the file doesn't exist don't bother reading it
+        if not os.path.exists(self.file_path):
+            print(f"Could not find, and therefore read from {self.file_path}.")
+            return False
+
+        # Don't read a file that's too big
+        if self.file_size_is_too_big(os.path.getsize(self.file_path)):
+            print(f"{self.file_path} is too big, refusing to read it.")
+            return False
+
+        # Open self.file_path for reading
         file_handle = None
-        list_of_dict = []
-
-        # Try to create a file for self.file_path
         try:
-            file_handle = open(self.file_path, "x")
-        # self.file_path already exists, try to read it
-        except FileExistsError:
-            # Make sure this read isn't too big
-            file_size_in_bytes = os.path.getsize(self.file_path)
-            if self.file_size_is_too_big(file_size_in_bytes):
-                return False
-
-            # Open self.file_path for reading
             file_handle = open(self.file_path, "r")
+        except OSError:
+            print(f"{self.file_path} exists, but cannot be read.")
+            return False
 
-            # Try decoding contents of JSON file
-            try:
-                list_of_dict = json.load(file_handle)
-            # There was an error parsing the contents of the JSON file
-            except json.JSONDecodeError:
-                # Close file
-                print(f"{self.file_path} exists, but there was an error parsing it as JSON.")
-                file_handle.close()
-                backup_file_path = f'{self.file_directory}/{time.strftime("%Y.%m.%d-%I:%M", time.localtime())}_{self.file_name}'
+        # Read the contents of self.file_path as JSON
+        json_read = None
+        try:
+            json_read = json.load(file_handle)
+            file_handle.close()
+        except json.JSONDecodeError:
+            print(f"{self.file_path} exists, but there was an error parsing it as JSON.")
+            file_handle.close()
+            return False
 
-                # Try to make backup of file before overwriting it
-                try:
-                    os.rename(self.file_path, backup_file_path)
-                    print(f"Moved {self.file_path} to {backup_file_path}.")
-                # There was an error moving the old contents to a backup file, just try to remove it
-                except OSError:
-                    print(f"Failed to move {self.file_path} to {backup_file_path}.")
-                    print(f"Will delete and make a new empty {self.file_path}.")
-                    os.path.remove(self.file_path)
+        # Log time of read
+        self.last_sync = time.localtime()
 
-                # Make a new fresh file, fill it with an empty array
-                file_handle = open(self.file_path, "w")
-                json.dump(result, file_handle)
-
-        # Close file, log time of read
-        file_handle.close()
-        self.last_sync = os.path.getmtime(self.file_path)
-
-        # Parse list of dict from JSON into a list of classes
+        # Parse contents of JSON read as a list of dictionaries
         self.list = []
         for dictionary in list_of_dict:
             self.list_type_instance.from_dict(dictionary)
             self.list.append(self.list_type_instance.copy())
 
-        # The read did its best and wasn't denied
+        # Return success
         return True
 
     # Save contents to self.file_path (should save a list of dicts)
+    # TODO: make sure write directory exists
     def write(self) -> True:
         # Create a list of dicts to save to self.file_path
         list_of_dict = []
         for list_item in self.list:
             list_of_dict.append(list_item.to_dict())
 
-        # Get the file size of the write
+        # Compute the JSON that will be dumped into the file, refuse if it's too big
         json_dump = json.dumps(list_of_dict)
         if self.file_size_is_too_big(len(json_dump)):
+            print(f"The contents wishing to be written to {self.file_path} is too big, refusing to write it.")
             return False
 
-        # Open self.file_path for writing, if it doesn't exist this function makes one, write to it
+        # Write to self.file_path, will overwrite old contents and make new file if one did not exist
         file_handle = open(self.file_path, "w")
         file_handle.write(json_dump)
-
-        # Close file, log time of write
         file_handle.close()
-        self.last_sync = os.path.getmtime(self.file_path)
 
-        # The write did its best and wasn't denied
+        # Log time of write
+        self.last_sync = time.localtime()
+
+        # Return success
         return True
 
     # Return the index of the first self.list item that makes search_function return True
@@ -163,10 +150,9 @@ class JSONList:
     # Return whether the contents of self.file_path are newer than that of memory, possible in multi-threaded situations
     def is_desynced(self) -> bool:
         try:
-            last_modified = os.path.getmtime(self.file_path)
+            return os.path.getmtime(self.file_path) > self.last_sync
         except OSError:
             return True
-        return last_modified > self.last_sync
 
     # If the contents of memory are older than the contents of self.file_path, overwrite memory with the contents of self.file_path
     # TODO: In (rare, but less rare the bigger the files get) multi-threaded cases, it is possible

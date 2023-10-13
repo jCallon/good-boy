@@ -12,84 +12,86 @@ import gtts
 import io
 
 # Custom class for interfacing with JSON files
-from discord_slash_commands.helpers.json_list import JSONList
+import discord_slash_commands.helpers.json_list as json_list
+
+# Custom functions for denying commands based off of bot state
+import discord_slash_commands.helpers.application_context_checks as application_context_checks
 
 # =========================== #
 # Define underlying structure #
 # =========================== #
 
-# Define the information held on a user for TTS
-class TTSUserPreference(JSONListItem):
+# Define an instance of information held on a user for TTS
+class TTSUserPreference(json_list.JSONListItem):
     def __init__(
         self,
+        guild_id: int = 0,
         user_id: int = 0,
         spoken_name: str = "",
-        language: str = "",
-        volume: int = 100
+        language: str = ""
     ):
-        # The unique identifier for the user whose preferences are being defined below
+        # The unique identifier for the guild the user is setting their preferences in, lets users have per-guild settings, ex. 21897521
+        self.guild_id = guild_id
+        # The unique identifier for the user whose preferences are being defined below, ex. 56918762
         self.user_id = user_id
-        # The name the user prefers is spoken when referring to them, useful for names with emojis or that are pronounced odd
+        # The name the user prefers is spoken when referring to them, useful for names with emojis or that are pronounced odd, ex. Lover = <3er
         self.spoken_name = spoken_name
-        # The IETF code of the language the user prefers their TTS to speak in, for example, en or es
+        # The IETF code of the language the user prefers their TTS to speak in, ex. en = English
         self.language = language
-        # The volume the user prefers their TTS to speak at TTS 
-        self.volume = volume
 
     # Return whether this instance of TTSUserInfo has matching members with new_tts_user_preference
-    def equals(self, new_tts_user_preference) -> bool:
-        result = True
-        result = result and (self.user_id == new_tts_user_preference.user_id)
-        result = result and (self.spoken_name == new_tts_user_preference.spoken_name)
-        result = result and (self.language == new_tts_user_preference.language)
-        result = result and (self.language == new_tts_user_preference.volume)
-        return result
+    def equals(self, comparison_tts_user_preference) -> bool:
+        return (self.guild_id == comparison_tts_user_preference.guild_id) and \
+        (self.user_id == comparison_tts_user_preference.user_id) and \
+        (self.spoken_name == comparison_tts_user_preference.spoken_name) and \
+        (self.language == comparison_tts_user_preference.language)
 
     # Return a copy of this TTSUserPreference
     def copy(self):
-        return TTSUserPreference(self.user_id, self.spoken_name, self.language, self.volume)
+        return TTSUserPreference(self.guild_id, self.user_id, self.spoken_name, self.language)
 
     # Convert class to JSON format
-    def to_dict(self, optimize_for_space: bool = False) -> dict:
+    def to_dict(self) -> dict:
         return {
-            "a" if optimize_for_space == True else "user_id": self.user_id,
-            "b" if optimize_for_space == True else "spoken_name": self.spoken_name,
-            "c" if optimize_for_space == True else "language": self.language,
-            "d" if optimize_for_space == True else "volume": self.volume,
+            "gid": self.guild_id,
+            "uid": self.user_id,
+            "name": self.spoken_name,
+            "lang": self.language
         }
 
     # Read class from JSON format
-    def from_dict(self, dictionary: dict, optimize_for_space: bool = False) -> None:
-        self.user_id = dictionary["a" if optimize_for_space == True else "user_id"]
-        self.spoken_name = dictionary["b" if optimize_for_space == True else "spoken_name"]
-        self.language = dictionary["c" if optimize_for_space == True else "language"]
-        self.language = dictionary["d" if optimize_for_space == True else "volume"]
+    def from_dict(self, dictionary: dict) -> None:
+        self.gid = dictionary["gid"]
+        self.user_id = dictionary["uid"]
+        self.spoken_name = dictionary["name"]
+        self.language = dictionary["lang"]
 
 
 
 # Define the information
-# TODO: Allow users to have per-guild settings? How? Per-server files? Change data format?
-class TTSUserPreferenceBank(JSONList):
+class TTSUserPreferenceBank(json_list.JSONList):
     # Get a (a copy of the) user's TTS preferences if they have any
     def get_tts_user_preference(self, member: discord.Member) -> TTSUserPreference:
-        # Sync with latest changes
+        # Get the latest file updates
         self.sync()
 
         # If the user has specified their preference, find it and return a copy (not a reference)
-        match_index = self.get_list_item_index((tts_user_preference, user_id) => return tts_user_preference.user_id == user_id), member_id)
+        search_function = lambda tts_user_preference, args: tts_user_preference.guild_id == args[0] and tts_user_preference.user_id == args[1]
+        match_index = self.get_list_item_index(search_function, [member.guild.id, member.id])
         if match_index >= 0:
             return self.list[match_index].copy()
 
         # This user has not specified their preference, give them default
-        return TTSUserPreference(member.id, member.display_name, 'en')
+        return TTSUserPreference(member.guild.id, member.id, member.display_name, 'en')
 
     # Add or modify user's TTS preferences
     def add_tts_user_preference(self, new_tts_user_preference: TTSUserPreference) -> bool:
-        # Sync with latest changes
+        # Get the latest file updates
         self.sync()
 
         # If the user had any previous preference, remove it, unless it matches the new preference
-        match_index = self.get_list_item_index((tts_user_preference, user_id) => return tts_user_preference.user_id == user_id), new_tts_user_preference.user_id)
+        search_function = lambda tts_user_preference, args: tts_user_preference.guild_id == args[0] and tts_user_preference.user_id == args[1]
+        match_index = self.get_list_item_index(search_function, [member.guild.id, member.id])
         if match_index >= 0:
             if self.list[match_index].equals(new_tts_user_preference):
                 return False
@@ -104,26 +106,44 @@ class TTSUserPreferenceBank(JSONList):
 
 # Create instance of TTSUserPreferenceBank
 tts_user_preference_instance = TTSUserPreference()
-tts_user_preference_bank = TTSUserPreferenceBank("user_information", "tts_user_preference_bank.json", tts_user_preference_instance)
+tts_user_preference_bank = TTSUserPreferenceBank("json", "tts_user_preference_bank.json", tts_user_preference_instance)
+
+
+
+# Set default TTS volume, ex. 2 = 200%
+tts_default_volume = 2.0
 
 
 
 # Create slash command group
-tts_slash_command_group = discord.SlashCommandGroup("tts", "Text to speech commands")
-
-
-
-# Create a function to make queuing multiple audio sources after each other possible
-def play_next_audio_source(error_exception, ctx, previous_audio_source, next_audio_source):
-    if error_exception != None:
-        print(f"Encountered error {error_exception} while trying to play {previous_audio_source}.")
-        return
-    ctx.bot.play(next_audio_source)
+# TODO: Add checks later, make way for users to use TTS while other audio is playing? Seperate TTS bot connection?
+tts_slash_command_group = discord.SlashCommandGroup(
+    #checks = default,
+    #default_member_permissions = default,
+    description = "Text to speech commands",
+    #description_localizations = default,
+    #guild_ids = default,
+    guild_only = True,
+    name = "tts",
+    #name_localizations = default,
+    #nsfw = default,
+    #parent = default
+)
 
 
 
 # Define function for letting user say text in voice chat
-@tts_slash_command_group.command(name="play", description="Say specified text on your behalf in voice chat.")
+# TODO: make DM messages that are just text and not slash commands be interpretted as TTS
+@tts_slash_command_group.command(
+    name="play",
+    description="Say specified text on your behalf in voice chat.",
+    guild_only = False,
+    checks=[
+        application_context_checks.assert_bot_is_in_voice_chat,
+        application_context_checks.assert_bot_is_in_same_voice_chat_as_user,
+        application_context_checks.assert_bot_is_not_playing_audio_in_voice_chat,
+    ]
+)
 async def tts_play(
     ctx,
     text_to_say: discord.Option(str, decription="The text you want said on your behalf in voice chat.")
@@ -143,13 +163,7 @@ async def tts_play(
         await ctx.respond(error_message)
         return False
 
-    # Determine if the bot state is valid
-    if not ctx.voice_client:
-        error_message += f"\nI am not in a voice chat. Please connect me to a voice channel to speak in via \\voice join."
-    if ctx.voice_client and ctx.voice_client.is_playing():
-        error_message += f"\nI am already playing audio. Please wait until I finish playing my current audio, or stop it via \\voice stop."
-    if not (ctx.author.voice and ctx.author.voice.channel and ctx.author.voice.channel == ctx.voice_client.channel):
-        error_message += f"\nPlease be within the same voice channel as me to use TTS."
+    # Determine if user TTS preferences are valid
     tts_user_preference = tts_user_preference_bank.get_tts_user_preference(ctx.author)
     if len(tts_user_preference.spoken_name) > 20:
         error_message += f"\nYour current preferred spoken name, {tts_user_preference.spoken_name}, exceeds the max of 20 characters. Please change it."
@@ -164,26 +178,29 @@ async def tts_play(
     # If we got here, the arguments and bot state should be valid and safe to act upon
     # Get the sound for the text and send it to voice chat
 
-    # Generate audio for spoken name
+    # Generate volume-controlled audio for tts_user_preference.spoken_name
     mp3_file_like_object = io.BytesIO()
     speech_from_text = gtts.tts.gTTS(text=tts_user_preference.spoken_name, lang=tts_user_preference.language)
     speech_from_text.write_to_fp(mp3_file_like_object)
-    spoken_name_discord_ffmpeg_audio_source = discord.FFmpegAudio(mp3_file_like_object, options=[["volume", f"{tts_user_preference.volume / 100}"]])
+    spoken_name_discord_ffmpeg_audio_source = discord.FFmpegAudio(mp3_file_like_object, options=[["volume", tts_default_volume]])
 
     # Generate volume-controlled audio source for text_to_be_spoken
     mp3_file_like_object = io.BytesIO()
     speech_from_text = gtts.tts.gTTS(text=text_to_say, lang=tts_user_preference.language)
     speech_from_text.write_to_fp(mp3_file_like_object)
-    spoken_text_discord_ffmpeg_audio_source = discord.FFmpegAudio(mp3_file_like_object, options=[["volume", f"{tts_user_preference.volume / 100}"]])
+    spoken_text_discord_ffmpeg_audio_source = discord.FFmpegAudio(mp3_file_like_object, options=[["volume", tts_default_volume]])
 
-    bot.play(spoken_name_discord_ffmpeg_audio_source, play_next_audio_source(error_exception, ctx, previous_audio_source, next_audio_source))
+    bot.play(spoken_name_discord_ffmpeg_audio_source, lambda error: bot.play(spoken_text_discord_ffmpeg_audio_source))
 
     await ctx.respond(f"I'm trying to say \"{text_to_say}\".")
     return True
 
 
 # Define function for letting user change their preferred spoken name used by TTS
-@tts_slash_command_group.command(name="spoken_name", description="Change the name/pronounciation TTS refers to you by.")
+@tts_slash_command_group.command(
+    name="spoken_name",
+    description="Change the name/pronounciation TTS refers to you by."
+)
 async def tts_spoken_name(
     ctx,
     new_spoken_name: discord.Option(str, description="The name you want to be referred by this bot in voice chat when using TTS.")
@@ -215,7 +232,10 @@ async def tts_spoken_name(
 
 
 # Define function for letting user change their language used by TTS
-@tts_slash_command_group.command(name="language", description="Change the language/accent TTS speaks in for you.")
+@tts_slash_command_group.command(
+    name="language",
+    description="Change the language/accent TTS speaks in for you."
+)
 async def tts_language(
     ctx,
     new_language: discord.Option(str, description="The language (and/or accent) of the text you want spoken when using TTS.")
@@ -245,34 +265,4 @@ async def tts_language(
         await ctx.respond(f"Your language for TTS is already {new_language}.")
         return False
     await ctx.respond(f"Your language for TTS has been changed to {new_language}.")
-    return True
-
-# Define function for letting user change their TTS volume
-@tts_slash_command_group.command(name="volume", description="Change the volume TTS speaks at for you.")
-async def tts_language(
-    ctx,
-    new_volume: discord.Option(int, description="The percentage volume to speak at.")
-):
-    # Determine if the arguments are valid
-    error_message = ""
-    if new_volume <= 0:
-        error_message += f"\nPlease use a volume of greater than 0%."
-    if new_volume > 200:
-        error_message += f"\nPlease use a volume of less than 200%."
-
-    # If the user's arguments weren't valid, give them verbose error messages and an example to help them
-    if error_message != "":
-        error_message += f"\nHere's an example command."
-        error_message += f"\nIncrease my volume to 1.5 times louder than default."
-        error_message += f"\n`\\tts volume 150`"
-        await ctx.respond(error_message)
-        return False
-
-    # If we got here, the arguments are valid and safe to act upon
-    tts_user_preference = tts_user_preference_bank.get_tts_user_preference(ctx.author)
-    tts_user_preference.volume = new_volume
-    if tts_user_preference_bank.add_tts_user_preference(tts_user_preference) == False:
-        await ctx.respond(f"Your volume for TTS is already {new_volume}.")
-        return False
-    await ctx.respond(f"Your volume for TTS has been changed to {new_volume}.")
     return True

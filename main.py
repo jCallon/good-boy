@@ -32,6 +32,13 @@ discord_bot.add_application_command(voice_slash_commands.voice_slash_command_gro
 from discord_slash_commands import tts as tts_slash_commands
 discord_bot.add_application_command(tts_slash_commands.tts_slash_command_group)
 
+@discord_bot.event
+async def on_application_command_error(ctx: discord.ApplicationContext, error: discord.DiscordException):
+    if isinstance(error, discord.CheckFailure) and error.payload != None:
+        await ctx.respond(error.payload)
+    else:
+        raise error
+
 # =============== #
 # Run Discord bot #
 # =============== #
