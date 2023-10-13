@@ -11,8 +11,11 @@ import gtts
 # API for creating BytesIO file-like object
 import io
 
-# TODO: comment
-import random
+# Operating system API for handling things like moving files
+import os
+
+# API for text in a collision-resistant way
+import hashlib, binascii
 
 # Custom class for interfacing with JSON files
 import discord_slash_commands.helpers.json_list as json_list
@@ -23,17 +26,6 @@ import discord_slash_commands.helpers.application_context_checks as application_
 # =========================== #
 # Define underlying structure #
 # =========================== #
-
-
-
-global after_function_voice_client
-global after_function_discord_audio_source
-def pain(error):
-    global after_function_voice_client
-    global after_function_discord_audio_source
-    after_function_voice_client.play(after_function_discord_audio_source)
-
-
 
 # Define an instance of information held on a user for TTS
 class TTSUserPreference(json_list.JSONListItem):
@@ -82,7 +74,7 @@ class TTSUserPreference(json_list.JSONListItem):
 
 
 
-# Define the information
+# Define a list of information held on all users for TTS
 class TTSUserPreferenceBank(json_list.JSONList):
     # Get a (a copy of the) user's TTS preferences if they have any
     def get_tts_user_preference(self, member: discord.Member) -> TTSUserPreference:
@@ -118,14 +110,81 @@ class TTSUserPreferenceBank(json_list.JSONList):
 
 
 
-# Create instance of TTSUserPreferenceBank
+# Define what file information we care about when saving audio files for TTS
+class TTSFileInfo():
+    def __init__(self, file_name: str = "", last_access_time: int = 0):
+        self.file_name = file_name
+        self.last_access_time = last_access_time
+
+
+
+# Define an API for making PyCord-compatible audio sources for given text and language while keeping your computer clean
+class TTSFileInfoList():
+    def __init__(self, file_directory: str, max_allowed_files: int):
+        # The directory audio generated from text for TTS will be saved
+        self.file_directory = file_directory
+        # The max number of files allowed to be stored in self.file_directory
+        self.max_allowed_files = max_allowed_files
+
+    # Generate a file name to store TTS audio at based on what is being said and what language it is being said in,
+    # Used: https://cryptobook.nakov.com/cryptographic-hash-functions
+    # Use collision-resistant hash to not store plain text from arbitrary plaintext from an unknown source,
+    # (hello embedded bash commands!) while also being able to identify if this file has been generated before
+    def get_file_name(self, text_to_say: str, language_to_speak: str) -> str:
+        byte_array = language_to_speak + text_to_say
+        byte_array = byte_array.encode()
+        return f"{binascii.hexlify(hashlib.sha3_256(byte_array).digest())}.mp3"
+
+    # Generate a relative file path given a file name
+    def get_file_path(self, file_name: str) -> str:
+        return f"{self.file_directory}/{file_name}"
+
+    # Create new or give back PyCord audio source given text_to_say and language_to_speak
+    def get_audio_source(self, text_to_say: str, language_to_speak: str) -> discord.FFmpegPCMAudio: 
+        # Get the latest changes
+        sorted_list_of_file_info = []
+        for file_name in os.listdir(self.file_directory):
+            sorted_list_of_file_info.append(TTSFileInfo(file_name, os.stat(self.get_file_path(file_name)).st_atime))
+        sorted_list_of_file_info = sorted(sorted_list_of_file_info, key=lambda file_info: file_info.last_access_time)
+
+        # Remove files once over storage threshold, removing the least recently accessed file first
+        while len(sorted_list_of_file_info) >= self.max_allowed_files:
+            os.path.remove(self.get_file_path(sorted_list_of_file_info[0].file_name))
+            sorted_list_of_file_info.pop(0)
+
+        # Generate the file name and path
+        file_name = self.get_file_name(text_to_say, language_to_speak)
+        file_path = self.get_file_path(file_name)
+
+        # See if there is already an audio file generated for this text_to_say and language_to_speak
+        match_index = -1
+        for i in range(len(sorted_list_of_file_info)):
+            if file_name == sorted_list_of_file_info[i].file_name:
+                match_index = i
+                break
+
+        # If this file does not exist we'll need to generate it
+        if match_index == -1:
+            speech_from_text = gtts.tts.gTTS(text=text_to_say, lang=language_to_speak)
+            speech_from_text.save(file_path)
+
+        # Return PyCord-compliant audio source for file
+        return discord.FFmpegPCMAudio(source=file_path, options=[["volume", tts_default_volume]]) 
+        
+
+
+# Create class instances
 tts_user_preference_instance = TTSUserPreference()
-tts_user_preference_bank = TTSUserPreferenceBank("json", "tts_user_preference_bank.json", tts_user_preference_instance)
-
-
-
-# Set default TTS volume, ex. 2 = 200%
-tts_default_volume = 2.0
+tts_user_preference_bank = TTSUserPreferenceBank(
+    file_directory="json",
+    file_name="tts_user_preference_bank.json",
+    list_type_instance=tts_user_preference_instance,
+    #max_file_size_in_bytes=default
+)
+tts_file_info_list = TTSFileInfoList(
+    file_directory="tts_cache",
+    max_allowed_files=100
+)
 
 
 
@@ -146,8 +205,28 @@ tts_slash_command_group = discord.SlashCommandGroup(
 
 
 
+# Create an ad-hoc way to queue audio one-after-another
+# TODO: make real audio queue
+# Set default TTS volume, ex. 2 = 200%
+tts_default_volume = 2.0
+global next_voice_client
+global next_audio_source
+global next_after_function
+def set_next_audio_queue_source(voice_client, audio_source, after_function):
+    global next_voice_client
+    global next_audio_source
+    global next_after_function
+    next_voice_client = voice_client
+    next_audio_source = audio_source
+    next_after_function = after_function
+def play_next_audio_queue_source(error):
+    next_voice_client.play(next_audio_source, after=next_after_function)
+
+
+
 # Define function for letting user say text in voice chat
 # TODO: make DM messages that are just text and not slash commands be interpretted as TTS
+# NOTE: gtts' write_to_fp() theoretically avoids writing to file?
 @tts_slash_command_group.command(
     name="play",
     description="Say specified text on your behalf in voice chat.",
@@ -192,51 +271,18 @@ async def tts_play(
     # If we got here, the arguments and bot state should be valid and safe to act upon
     # Get the sound for the text and send it to voice chat
 
-    # TODO: comment, save files as first 10 characters of name/text, if file already exists use it instead of genreating new file
-    random_int = random.randint(1, 4294967295)
-    name_file_path = f"tmp/{random_int}.mp3"
-    text_file_path = f"tmp/{random_int - 1}.mp3"
+    # Get audio sources
+    name_audio_source = tts_file_info_list.get_audio_source(text_to_say=tts_user_preference.spoken_name, language_to_speak=tts_user_preference.language)
+    text_audio_source = tts_file_info_list.get_audio_source(text_to_say=text_to_say, language_to_speak=tts_user_preference.language)
 
-    # TODO: comment
-    speech_from_text = gtts.tts.gTTS(text=tts_user_preference.spoken_name, lang=tts_user_preference.language)
-    speech_from_text.save(name_file_path)
-    name_discord_ffmpeg_audio_source = discord.FFmpegPCMAudio(source=name_file_path, options=[["volume", tts_default_volume]]) 
-
-    # TODO: comment
-    speech_from_text = gtts.tts.gTTS(text=text_to_say, lang=tts_user_preference.language)
-    speech_from_text.save(text_file_path)
-    text_discord_ffmpeg_audio_source = discord.FFmpegPCMAudio(source=text_file_path, options=[["volume", tts_default_volume]]) 
-
+    # Play tts_user_preference.spoken_name then text_to_say
     # Feels bad, can't pass arguments to the after function, or await the play function, so using globals
-    global after_function_voice_client
-    after_function_voice_client = ctx.bot.voice_clients[0]
-    global after_function_discord_audio_source
-    after_function_discord_audio_source = text_discord_ffmpeg_audio_source
-    ctx.bot.voice_clients[0].play(source=name_discord_ffmpeg_audio_source, after=pain)
-
-    # Delete file if there are over 100
-
-    # Generate volume-controlled audio for tts_user_preference.spoken_name
-    # TODO find a way to use write_to_fp() to avoid writing to file, save user's name instead of regenerating
-    #mp3_file_like_object = io.BytesIO()
-    #speech_from_text = gtts.tts.gTTS(text=tts_user_preference.spoken_name, lang=tts_user_preference.language)
-    #speech_from_text.write_to_fp(mp3_file_like_object)
-    #spoken_name_discord_ffmpeg_audio_source = discord.FFmpegPCMAudio(source=sad, options=[["volume", tts_default_volume]])
-    #sad = io.BufferedIOBase()
-    #sad.raw = mp3_file_like_object.getbuffer()
-    #sad.read = mp3_file_like_object.read1
-    #spoken_name_discord_ffmpeg_audio_source = discord.FFmpegPCMAudio(source=sad, pipe=True, options=[["volume", tts_default_volume]])
-
-    # Generate volume-controlled audio source for text_to_be_spoken
-    #mp3_file_like_object = io.BytesIO()
-    #speech_from_text = gtts.tts.gTTS(text=text_to_say, lang=tts_user_preference.language)
-    #speech_from_text.write_to_fp(mp3_file_like_object)
-    #spoken_text_discord_ffmpeg_audio_source = discord.FFmpegPCMAudio(source=mp3_file_like_object, options=[["volume", tts_default_volume]])
-
-    #bot.play(spoken_name_discord_ffmpeg_audio_source, lambda error: bot.play(spoken_text_discord_ffmpeg_audio_source))
+    set_next_audio_queue_source(voice_client=ctx.bot.voice_clients[0], audio_source=text_audio_source, after_function=None)
+    ctx.bot.voice_clients[0].play(source=name_audio_source, after=play_next_audio_queue_source)
 
     await ctx.respond(f"I'm trying to say \"{text_to_say}\".")
     return True
+
 
 
 # Define function for letting user change their preferred spoken name used by TTS
