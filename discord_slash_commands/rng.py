@@ -37,15 +37,15 @@ async def rng_roll(
         error_message += f"\nHere's an example command."
         error_message += f"\nSimulate rolling a 6 sided-die by rolling a whole number between (and including) 1 and 6."
         error_message += f"\n`\\rng roll True 1 6`"
-        await ctx.respond(error_message)
+        await ctx.respond(ephemeral=True, content=error_message)
         return False
 
     # If we got here, the arguments are valid and safe to act upon
     # Send back a number matching their arguments
     if is_whole == True:
-        await ctx.respond(random.randint(int(minimum_value), int(maximum_value)))
+        await ctx.respond(ephemeral=False, content=str(random.randint(int(minimum_value), int(maximum_value))))
     else:
-        await ctx.respond(round(minimum_value + (random.random() * (maximum_value - minimum_value)), 2))
+        await ctx.respond(ephemeral=False, content=str(round(minimum_value + (random.random() * (maximum_value - minimum_value)), 2)))
     return True
 
 
@@ -75,7 +75,7 @@ async def rng_pick(
         error_message += f"\nHere's an example command."
         error_message += f"\nPick 2 different kind of juice to make popsicles from. The options are apple juice, orange juice, and grape juice."
         error_message += f"\n`\\rng pick 2 False \"apple juice, orange juice, grape juice\"`"
-        await ctx.respond(error_message)
+        await ctx.respond(ephemeral=True, content=error_message)
         return False
     
     # If we got here, the arguments are valid and safe to act upon
@@ -94,5 +94,5 @@ async def rng_pick(
     items_picked_str = items_picked_list.pop(0)
     while len(items_picked_list) > 0:
         items_picked_str += ", " + items_picked_list.pop(0)
-    await ctx.respond(items_picked_str)
+    await ctx.respond(ephemeral=False, content=items_picked_str)
     return True

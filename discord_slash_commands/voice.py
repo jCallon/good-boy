@@ -43,7 +43,7 @@ async def voice_join(ctx):
     # Determine if the user state is valid
     # If the user's state isn't valid, give them verbose error messages
     if not ctx.author.voice or not ctx.author.voice.channel:
-        await ctx.respond(f"Please join a voice channel. I join the channel you are in.")
+        await ctx.respond(ephemeral=True, content=f"Please join a voice channel. I join the channel you are in.")
         return False
 
     # If we got here, the user state is valid and safe to act upon
@@ -51,7 +51,7 @@ async def voice_join(ctx):
     # TODO: play a high bark on entry
     await ctx.author.voice.channel.connect()
 
-    await ctx.respond(f"I have tried to connect to your voice channel.")
+    await ctx.respond(ephemeral=False, delete_after=60*30, content=f"I have tried to connect to your voice channel.")
     return True
 
 
@@ -71,7 +71,7 @@ async def voice_leave(ctx):
     # TODO: play a low bark on exit
     await ctx.voice_client.disconnect()
 
-    await ctx.respond(f"I have tried to disconnect from your voice channel.")
+    await ctx.respond(ephemeral=False, delete_after=60*30, content=f"I have tried to disconnect from your voice channel.")
     return True
 
 
@@ -91,5 +91,5 @@ async def voice_stop(ctx):
     # Stop the playing of the audio currently playing in voice chat
     ctx.voice_client.stop()
 
-    await ctx.respond(f"I have tried to stop the audio I am playing in your voice channel.")
+    await ctx.respond(ephemeral=False, delete_after=60, content=f"I have tried to stop the audio I am playing in your voice channel.")
     return True
