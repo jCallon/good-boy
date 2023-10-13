@@ -23,7 +23,7 @@ async def rng_roll(
     ctx,
     is_whole: discord.Option(bool, description="Whether the number rolled should be whole."),
     minimum_value: discord.Option(float, description="The lowest number that can be rolled, inclusive."),
-    maximum_value: discord.Option(float, description="The highest number that can be rolled, inclusive.")
+    maximum_value: discord.Option(float, description="The highest number that can be rolled, inclusive."),
 ):
     # Determine if the arguments are valid
     error_message = ""
