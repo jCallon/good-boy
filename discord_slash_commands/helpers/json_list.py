@@ -93,7 +93,7 @@ class JSONList:
             print(f"{self.file_path} exists, but cannot be read.")
             return False
 
-        # Read the contents of self.file_path as JSON
+        # Read the contents of self.file_path as JSON, a list of dictionaries
         json_read = None
         try:
             json_read = json.load(file_handle)
@@ -104,11 +104,11 @@ class JSONList:
             return False
 
         # Log time of read
-        self.last_sync = time.localtime()
+        self.last_sync = time.mktime(time.localtime())
 
         # Parse contents of JSON read as a list of dictionaries
         self.list = []
-        for dictionary in list_of_dict:
+        for dictionary in json_read:
             self.list_type_instance.from_dict(dictionary)
             self.list.append(self.list_type_instance.copy())
 
@@ -135,14 +135,14 @@ class JSONList:
         file_handle.close()
 
         # Log time of write
-        self.last_sync = time.localtime()
+        self.last_sync = time.mktime(time.localtime())
 
         # Return success
         return True
 
     # Return the index of the first self.list item that makes search_function return True
     def get_list_item_index(self, search_function, search_match) -> int:
-        for i in range(self.list):
+        for i in range(len(self.list)):
             if search_function(self.list[i], search_match) == True:
                 return i
         return -1

@@ -61,7 +61,7 @@ class TTSUserPreference(json_list.JSONListItem):
 
     # Read class from JSON format
     def from_dict(self, dictionary: dict) -> None:
-        self.gid = dictionary["gid"]
+        self.guild_id = dictionary["gid"]
         self.user_id = dictionary["uid"]
         self.spoken_name = dictionary["name"]
         self.language = dictionary["lang"]
@@ -91,14 +91,14 @@ class TTSUserPreferenceBank(json_list.JSONList):
 
         # If the user had any previous preference, remove it, unless it matches the new preference
         search_function = lambda tts_user_preference, args: tts_user_preference.guild_id == args[0] and tts_user_preference.user_id == args[1]
-        match_index = self.get_list_item_index(search_function, [member.guild.id, member.id])
+        match_index = self.get_list_item_index(search_function, [new_tts_user_preference.guild_id, new_tts_user_preference.user_id])
         if match_index >= 0:
             if self.list[match_index].equals(new_tts_user_preference):
                 return False
             self.list.pop(match_index)
 
         # Add new user preference
-        self.tts_user_preference_list.append(new_tts_user_preference)
+        self.list.append(new_tts_user_preference)
         self.write()
         return True
 
