@@ -8,9 +8,6 @@ import discord
 # API for using Google to turn text into speech
 import gtts
 
-# API for creating BytesIO file-like object
-import io
-
 # Operating system API for handling things like moving files
 import os
 
@@ -45,7 +42,7 @@ class TTSUserPreference(json_list.JSONListItem):
         # The IETF code of the language the user prefers their TTS to speak in, ex. en = English
         self.language = language
 
-    # Return whether this instance of TTSUserInfo has matching members with new_tts_user_preference
+    # Return whether this instance of TTSUserInfo has matching members with comparison_tts_user_preference
     def equals(self, comparison_tts_user_preference) -> bool:
         return (self.guild_id == comparison_tts_user_preference.guild_id) and \
         (self.user_id == comparison_tts_user_preference.user_id) and \
@@ -53,10 +50,10 @@ class TTSUserPreference(json_list.JSONListItem):
         (self.language == comparison_tts_user_preference.language)
 
     # Return a copy of this TTSUserPreference
-    def copy(self):
+    def copy(self) -> TTSUserPreference:
         return TTSUserPreference(self.guild_id, self.user_id, self.spoken_name, self.language)
 
-    # Convert class to JSON format
+    # Convert member variables into to dictionary (which are JSON-compatible)
     def to_dict(self) -> dict:
         return {
             "gid": self.guild_id,
@@ -65,7 +62,7 @@ class TTSUserPreference(json_list.JSONListItem):
             "lang": self.language
         }
 
-    # Read class from JSON format
+    # Read member varaibles from JSON-compatible dictionary
     def from_dict(self, dictionary: dict) -> None:
         self.guild_id = dictionary["gid"]
         self.user_id = dictionary["uid"]
@@ -87,7 +84,7 @@ class TTSUserPreferenceBank(json_list.JSONList):
         if match_index >= 0:
             return self.list[match_index].copy()
 
-        # This user has not specified their preference, give them default
+        # This user has not specified their preference, return default preferences
         return TTSUserPreference(member.guild.id, member.id, member.display_name, 'en')
 
     # Add or modify user's TTS preferences
@@ -113,7 +110,9 @@ class TTSUserPreferenceBank(json_list.JSONList):
 # Define what file information we care about when saving audio files for TTS
 class TTSFileInfo():
     def __init__(self, file_name: str = "", last_access_time: int = 0):
+        # The name of an MP3 file holding TTS, see TTSFileInfoList.get_file_name to see how they're generated
         self.file_name = file_name
+        # The time self.file_name was last accessed (this may not be the same as when it was last made or modified)
         self.last_access_time = last_access_time
 
 
@@ -126,7 +125,7 @@ class TTSFileInfoList():
         # The max number of files allowed to be stored in self.file_directory
         self.max_allowed_files = max_allowed_files
 
-    # Generate a file name to store TTS audio at based on what is being said and what language it is being said in,
+    # Generate a file name to store TTS audio at based on what is being said and what language it is being said in
     # Used: https://cryptobook.nakov.com/cryptographic-hash-functions
     # Use collision-resistant hash to not store plain text from arbitrary plaintext from an unknown source,
     # (hello embedded bash commands!) while also being able to identify if this file has been generated before
@@ -139,7 +138,7 @@ class TTSFileInfoList():
     def get_file_path(self, file_name: str) -> str:
         return f"{self.file_directory}/{file_name}"
 
-    # Create new or give back PyCord audio source given text_to_say and language_to_speak
+    # Create new or give back PyCord audio source for the given text_to_say and language_to_speak
     def get_audio_source(self, text_to_say: str, language_to_speak: str) -> discord.FFmpegPCMAudio: 
         # Get the latest changes
         sorted_list_of_file_info = []
@@ -147,7 +146,7 @@ class TTSFileInfoList():
             sorted_list_of_file_info.append(TTSFileInfo(file_name, os.stat(self.get_file_path(file_name)).st_atime))
         sorted_list_of_file_info = sorted(sorted_list_of_file_info, key=lambda file_info: file_info.last_access_time)
 
-        # Remove files once over storage threshold, removing the least recently accessed file first
+        # Remove files once over self.max_allowed_files, removing the least recently accessed files
         while len(sorted_list_of_file_info) >= self.max_allowed_files:
             os.path.remove(self.get_file_path(sorted_list_of_file_info[0].file_name))
             sorted_list_of_file_info.pop(0)
@@ -157,14 +156,14 @@ class TTSFileInfoList():
         file_path = self.get_file_path(file_name)
 
         # See if there is already an audio file generated for this text_to_say and language_to_speak
-        match_index = -1
+        file_exists = False
         for i in range(len(sorted_list_of_file_info)):
             if file_name == sorted_list_of_file_info[i].file_name:
-                match_index = i
+                file_exists = True
                 break
 
         # If this file does not exist we'll need to generate it
-        if match_index == -1:
+        if file_exists == False:
             speech_from_text = gtts.tts.gTTS(text=text_to_say, lang=language_to_speak)
             speech_from_text.save(file_path)
 
@@ -176,14 +175,14 @@ class TTSFileInfoList():
 # Create class instances
 tts_user_preference_instance = TTSUserPreference()
 tts_user_preference_bank = TTSUserPreferenceBank(
-    file_directory="json",
-    file_name="tts_user_preference_bank.json",
-    list_type_instance=tts_user_preference_instance,
-    #max_file_size_in_bytes=default
+    file_directory = "json",
+    file_name = "tts_user_preference_bank.json",
+    list_type_instance = tts_user_preference_instance,
+    #max_file_size_in_bytes = default
 )
 tts_file_info_list = TTSFileInfoList(
-    file_directory="tts_cache",
-    max_allowed_files=100
+    file_directory = "tts_cache",
+    max_allowed_files = 100
 )
 
 
@@ -206,7 +205,7 @@ tts_slash_command_group = discord.SlashCommandGroup(
 
 
 # Create an ad-hoc way to queue audio one-after-another
-# TODO: make real audio queue
+# TODO: make real audio queue, this pains me
 # Set default TTS volume, ex. 2 = 200%
 tts_default_volume = 2.0
 global next_voice_client
@@ -252,11 +251,12 @@ async def tts_play(
     if error_message != "":
         error_message += f"\nHere's an example command."
         error_message += f"\nGreet everyone in the voice chat the bot is currently connected to."
-        error_message += f"\n`\\tts play \"Hi everyone!\"`"
+        error_message += f"\n`/tts play text_to_say: Hi everyone!`"
         await ctx.respond(error_message)
         return False
 
     # Determine if user TTS preferences are valid
+    # TODO: don't hard-code tts name length limit
     tts_user_preference = tts_user_preference_bank.get_tts_user_preference(ctx.author)
     if len(tts_user_preference.spoken_name) > 20:
         error_message += f"\nYour current preferred spoken name, {tts_user_preference.spoken_name}, exceeds the max of 20 characters. Please change it."
@@ -305,7 +305,7 @@ async def tts_spoken_name(
     if error_message != "":
         error_message += f"\nHere's an example command."
         error_message += f"\nHave TTS call me Pancake Monster."
-        error_message += f"\n`\\tts spoken_name \"Pancake Monster\"`"
+        error_message += f"\n`/tts spoken_name new_spoken_name: Pancake Monster`"
         await ctx.respond(error_message)
         return False
 
@@ -343,7 +343,7 @@ async def tts_language(
     if error_message != "":
         error_message += f"\nHere's an example command."
         error_message += f"\nHave TTS use English as my language."
-        error_message += f"\n`\\tts language \"en\"`"
+        error_message += f"\n`/tts language new_language: en`"
         await ctx.respond(error_message)
         return False
 
