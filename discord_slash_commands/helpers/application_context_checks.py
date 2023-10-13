@@ -25,7 +25,7 @@ def application_context_check(
         raise failure
     return check_passed
 
-# TODO: comment
+# Assert the bot *is* in voice chat
 def assert_bot_is_in_voice_chat(application_context: discord.ApplicationContext): 
     return application_context_check(
         application_context,
@@ -33,7 +33,7 @@ def assert_bot_is_in_voice_chat(application_context: discord.ApplicationContext)
         "I must not be connected to a voice chat to use this command." + \
          "\nPlease disconnect me from voice chat via \\voice leave.")
 
-# TODO: comment
+# Asser the bot *is not* in voice chat
 def assert_bot_is_not_in_voice_chat(application_context: discord.ApplicationContext):
     return application_context_check(
         application_context,
@@ -41,7 +41,7 @@ def assert_bot_is_not_in_voice_chat(application_context: discord.ApplicationCont
         "I must be connected to a voice chat to use this command." + \
         "\nPlease connect me to a voice channel to speak in via \\voice join.")
 
-# TODO: comment
+# Assert the bot *is in the same voice channel* as the calling user
 def assert_bot_is_in_same_voice_chat_as_user(application_context: discord.ApplicationContext):
     return application_context_check(
         application_context,
@@ -49,7 +49,7 @@ def assert_bot_is_in_same_voice_chat_as_user(application_context: discord.Applic
         "You must be in the same voice chat as me to use this command." + \
         "\nPlease connect to the voice chat I am in, or make me join your voice channel via \\voice leave then \\voice join.")
 
-# TODO: comment
+# Assert the bot *is* playing audio in voice chat
 def assert_bot_is_playing_audio_in_voice_chat(application_context: discord.ApplicationContext):
     return application_context_check(
         application_context,
@@ -57,7 +57,7 @@ def assert_bot_is_playing_audio_in_voice_chat(application_context: discord.Appli
         "I must already be playing other audio to use this command." + \
         "\nThis can be done with many commands, such as \\tts play.")
 
-# TODO: comment
+# Assert the bot *is not* playing audio in voice chat
 def assert_bot_is_not_playing_audio_in_voice_chat(application_context: discord.ApplicationContext):
     return application_context_check(
         application_context,
