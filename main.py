@@ -34,9 +34,10 @@ discord_bot.add_application_command(tts_slash_commands.tts_slash_command_group)
 
 @discord_bot.event
 async def on_application_command_error(ctx: discord.ApplicationContext, error: discord.DiscordException):
-    if isinstance(error, discord.CheckFailure) and error.payload != None:
+    if isinstance(error, discord.CheckFailure) and isinstance(error.payload, str):
         await ctx.respond(error.payload)
     else:
+        await ctx.respond("Ran into an unknown error.")
         raise error
 
 # =============== #
