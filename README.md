@@ -12,15 +12,14 @@ But, here's a high level overview of the commands I currently support.
 | `\voice join`                         | Join the voice channel you are in.                   |
 | `\voice leave`                        | Leave the voice channel you are in.                  |
 | `\voice stop`                         | Stop playing the audio I am currently playing.       |
-| `\voice volume $new_volume`           | Change the volume of current audio.                  |
 | `\tts play $text`                     | Say specified text on your behalf in voice chat.     |
-| `\tts name $new_name`                 | Change the name/pronounciation TTS refers to you by. |
+| `\tts spoken_name $new_spoken_name`   | Change the name/pronounciation TTS refers to you by. |
 | `\tts language $new_language`         | Change the language/accent TTS speaks in for you.    |
-| `\tts volume $new_volume`             | Change the volume TTS speaks at for you.             |
 
 ## Backlog
 | Command                       | Description                                         |
 | ----------------------------- | --------------------------------------------------- |
+| `\voice volume $new_volume`   | Change the volume of current audio.                 |
 | `\voice queue $action $arg  ` | See or modify my audio queue.                       |
 | `\library list`               | List the audio in my sound library.                 |
 | `\library volume $new_volume` | Change the volume of future sound library audio.    |
