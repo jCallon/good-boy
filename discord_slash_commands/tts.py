@@ -50,7 +50,7 @@ class TTSUserPreference(json_list.JSONListItem):
         (self.language == comparison_tts_user_preference.language)
 
     # Return a copy of this TTSUserPreference
-    def copy(self) -> TTSUserPreference:
+    def copy(self):
         return TTSUserPreference(self.guild_id, self.user_id, self.spoken_name, self.language)
 
     # Convert member variables into to dictionary (which are JSON-compatible)

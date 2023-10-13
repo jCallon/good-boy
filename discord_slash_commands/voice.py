@@ -89,7 +89,7 @@ async def voice_leave(ctx):
 )
 async def voice_stop(ctx):
     # Stop the playing of the audio currently playing in voice chat
-    await ctx.voice_client.stop()
+    ctx.voice_client.stop()
 
     await ctx.respond(f"I have tried to stop the audio I am playing in your voice channel.")
     return True
