@@ -11,6 +11,9 @@ import gtts
 # API for creating BytesIO file-like object
 import io
 
+# TODO: comment
+import random
+
 # Custom class for interfacing with JSON files
 import discord_slash_commands.helpers.json_list as json_list
 
@@ -20,6 +23,17 @@ import discord_slash_commands.helpers.application_context_checks as application_
 # =========================== #
 # Define underlying structure #
 # =========================== #
+
+
+
+global after_function_voice_client
+global after_function_discord_audio_source
+def pain(error):
+    global after_function_voice_client
+    global after_function_discord_audio_source
+    after_function_voice_client.play(after_function_discord_audio_source)
+
+
 
 # Define an instance of information held on a user for TTS
 class TTSUserPreference(json_list.JSONListItem):
@@ -146,7 +160,7 @@ tts_slash_command_group = discord.SlashCommandGroup(
 )
 async def tts_play(
     ctx,
-    text_to_say: discord.Option(str, decription="The text you want said on your behalf in voice chat.")
+    text_to_say: discord.Option(str, description="The text you want said on your behalf in voice chat.")
 ):
     # Determine if the arguments are valid
     error_message = ""
@@ -178,19 +192,48 @@ async def tts_play(
     # If we got here, the arguments and bot state should be valid and safe to act upon
     # Get the sound for the text and send it to voice chat
 
-    # Generate volume-controlled audio for tts_user_preference.spoken_name
-    mp3_file_like_object = io.BytesIO()
+    # TODO: comment, save files as first 10 characters of name/text, if file already exists use it instead of genreating new file
+    random_int = random.randint(1, 4294967295)
+    name_file_path = f"tmp/{random_int}.mp3"
+    text_file_path = f"tmp/{random_int - 1}.mp3"
+
+    # TODO: comment
     speech_from_text = gtts.tts.gTTS(text=tts_user_preference.spoken_name, lang=tts_user_preference.language)
-    speech_from_text.write_to_fp(mp3_file_like_object)
-    spoken_name_discord_ffmpeg_audio_source = discord.FFmpegAudio(mp3_file_like_object, options=[["volume", tts_default_volume]])
+    speech_from_text.save(name_file_path)
+    name_discord_ffmpeg_audio_source = discord.FFmpegPCMAudio(source=name_file_path, options=[["volume", tts_default_volume]]) 
+
+    # TODO: comment
+    speech_from_text = gtts.tts.gTTS(text=text_to_say, lang=tts_user_preference.language)
+    speech_from_text.save(text_file_path)
+    text_discord_ffmpeg_audio_source = discord.FFmpegPCMAudio(source=text_file_path, options=[["volume", tts_default_volume]]) 
+
+    # Feels bad, can't pass arguments to the after function, or await the play function, so using globals
+    global after_function_voice_client
+    after_function_voice_client = ctx.bot.voice_clients[0]
+    global after_function_discord_audio_source
+    after_function_discord_audio_source = text_discord_ffmpeg_audio_source
+    ctx.bot.voice_clients[0].play(source=name_discord_ffmpeg_audio_source, after=pain)
+
+    # Delete file if there are over 100
+
+    # Generate volume-controlled audio for tts_user_preference.spoken_name
+    # TODO find a way to use write_to_fp() to avoid writing to file, save user's name instead of regenerating
+    #mp3_file_like_object = io.BytesIO()
+    #speech_from_text = gtts.tts.gTTS(text=tts_user_preference.spoken_name, lang=tts_user_preference.language)
+    #speech_from_text.write_to_fp(mp3_file_like_object)
+    #spoken_name_discord_ffmpeg_audio_source = discord.FFmpegPCMAudio(source=sad, options=[["volume", tts_default_volume]])
+    #sad = io.BufferedIOBase()
+    #sad.raw = mp3_file_like_object.getbuffer()
+    #sad.read = mp3_file_like_object.read1
+    #spoken_name_discord_ffmpeg_audio_source = discord.FFmpegPCMAudio(source=sad, pipe=True, options=[["volume", tts_default_volume]])
 
     # Generate volume-controlled audio source for text_to_be_spoken
-    mp3_file_like_object = io.BytesIO()
-    speech_from_text = gtts.tts.gTTS(text=text_to_say, lang=tts_user_preference.language)
-    speech_from_text.write_to_fp(mp3_file_like_object)
-    spoken_text_discord_ffmpeg_audio_source = discord.FFmpegAudio(mp3_file_like_object, options=[["volume", tts_default_volume]])
+    #mp3_file_like_object = io.BytesIO()
+    #speech_from_text = gtts.tts.gTTS(text=text_to_say, lang=tts_user_preference.language)
+    #speech_from_text.write_to_fp(mp3_file_like_object)
+    #spoken_text_discord_ffmpeg_audio_source = discord.FFmpegPCMAudio(source=mp3_file_like_object, options=[["volume", tts_default_volume]])
 
-    bot.play(spoken_name_discord_ffmpeg_audio_source, lambda error: bot.play(spoken_text_discord_ffmpeg_audio_source))
+    #bot.play(spoken_name_discord_ffmpeg_audio_source, lambda error: bot.play(spoken_text_discord_ffmpeg_audio_source))
 
     await ctx.respond(f"I'm trying to say \"{text_to_say}\".")
     return True
