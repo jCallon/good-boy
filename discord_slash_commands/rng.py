@@ -13,7 +13,18 @@ import random
 # =========================== #
 
 # Create slash command group
-rng_slash_command_group = discord.SlashCommandGroup("rng", "Random number generation commands")
+rng_slash_command_group = discord.SlashCommandGroup(
+    checks = [assert_author_is_allowed_to_call_command],
+    #default_member_permissions = default,
+    description = "Random number generation commands",
+    #description_localizations = default,
+    #guild_ids = default,
+    guild_only = False,
+    name = "rng",
+    #name_localizations = default,
+    #nsfw = default,
+    #parent = default
+)
 
 
 

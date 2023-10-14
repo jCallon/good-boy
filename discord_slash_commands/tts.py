@@ -188,9 +188,9 @@ tts_file_info_list = TTSFileInfoList(
 
 
 # Create slash command group
-# TODO: Add checks later, make way for users to use TTS while other audio is playing? Seperate TTS bot connection?
+# TODO: make way for users to use TTS while other audio is playing? Seperate TTS bot connection?
 tts_slash_command_group = discord.SlashCommandGroup(
-    #checks = default,
+    checks = [assert_author_is_allowed_to_call_command],
     #default_member_permissions = default,
     description = "Text to speech commands",
     #description_localizations = default,
@@ -240,6 +240,8 @@ async def tts_play(
     ctx,
     text_to_say: discord.Option(str, description="The text you want said on your behalf in voice chat.")
 ):
+    # TODO: make sure use can't get around blacklist by using DMs
+
     # Determine if the arguments are valid
     error_message = ""
     if len(text_to_say) == 0:
