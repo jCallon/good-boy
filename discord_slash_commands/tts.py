@@ -252,7 +252,7 @@ async def tts_play(
         error_message += f"\nHere's an example command."
         error_message += f"\nGreet everyone in the voice chat the bot is currently connected to."
         error_message += f"\n`/tts play text_to_say: Hi everyone!`"
-        await ctx.respond(error_message)
+        await ctx.respond(ephemeral=True, content=error_message)
         return False
 
     # Determine if user TTS preferences are valid
@@ -265,7 +265,7 @@ async def tts_play(
 
     # If the bot state wasn't valid, give the user verbose error messages to help them
     if error_message != "":
-        await ctx.respond(error_message)
+        await ctx.respond(ephemeral=True, content=error_message)
         return False
 
     # If we got here, the arguments and bot state should be valid and safe to act upon
@@ -280,7 +280,7 @@ async def tts_play(
     set_next_audio_queue_source(voice_client=ctx.bot.voice_clients[0], audio_source=text_audio_source, after_function=None)
     ctx.bot.voice_clients[0].play(source=name_audio_source, after=play_next_audio_queue_source)
 
-    await ctx.respond(f"I'm trying to say \"{text_to_say}\".")
+    await ctx.respond(ephemeral=True, content=f"I'm trying to say \"{text_to_say}\".")
     return True
 
 
@@ -306,16 +306,16 @@ async def tts_spoken_name(
         error_message += f"\nHere's an example command."
         error_message += f"\nHave TTS call me Pancake Monster."
         error_message += f"\n`/tts spoken_name new_spoken_name: Pancake Monster`"
-        await ctx.respond(error_message)
+        await ctx.respond(ephemeral=True, content=error_message)
         return False
 
     # If we got here, the arguments are valid and safe to act upon
     tts_user_preference = tts_user_preference_bank.get_tts_user_preference(ctx.author)
     tts_user_preference.spoken_name = new_spoken_name
     if tts_user_preference_bank.add_tts_user_preference(tts_user_preference) == False:
-        await ctx.respond(f"Your preferred name for TTS is already {new_spoken_name}.")
+        await ctx.respond(ephemeral=True, content=f"Your preferred name for TTS is already {new_spoken_name}.")
         return False
-    await ctx.respond(f"Your preferred name for TTS has been changed to {new_spoken_name}.")
+    await ctx.respond(ephemeral=False, content=f"Your preferred name for TTS has been changed to {new_spoken_name}.")
     return True
 
 
@@ -344,14 +344,14 @@ async def tts_language(
         error_message += f"\nHere's an example command."
         error_message += f"\nHave TTS use English as my language."
         error_message += f"\n`/tts language new_language: en`"
-        await ctx.respond(error_message)
+        await ctx.respond(ephemeral=True, content=error_message)
         return False
 
     # If we got here, the arguments are valid and safe to act upon
     tts_user_preference = tts_user_preference_bank.get_tts_user_preference(ctx.author)
     tts_user_preference.language = new_language
     if tts_user_preference_bank.add_tts_user_preference(tts_user_preference) == False:
-        await ctx.respond(f"Your language for TTS is already {new_language}.")
+        await ctx.respond(emphemeral=True, content=f"Your language for TTS is already {new_language}.")
         return False
-    await ctx.respond(f"Your language for TTS has been changed to {new_language}.")
+    await ctx.respond(ephemeral=True, content=f"Your language for TTS has been changed to {new_language}.")
     return True
