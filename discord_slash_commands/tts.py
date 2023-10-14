@@ -344,7 +344,7 @@ async def tts_language(
         error_message += f"\nHere's an example command."
         error_message += f"\nHave TTS use English as my language."
         error_message += f"\n`/tts language new_language: en`"
-        await ctx.respond(ephemeral=True, content=error_message, ephemeral=True)
+        await ctx.respond(ephemeral=True, content=error_message)
         return False
 
     # If we got here, the arguments are valid and safe to act upon
