@@ -15,13 +15,13 @@ But, here's a high level overview of the commands I currently support.
 | `/tts play $text`                     | Say specified text on your behalf in voice chat.     |
 | `/tts spoken_name $new_spoken_name`   | Change the name/pronounciation TTS refers to you by. |
 | `/tts language $new_language`         | Change the language/accent TTS speaks in for you.    |
-| `/admin blacklist $user $why`         | Ban someone (ex. annoying/abusive) from using me.    |
-| `/admin unblacklist $user`            | Unban someone from using me.                         |
-| `/admin admin $user`                  | Add someone as one of my admins.                     |
-| `/admin unadmin $user`                | Remove someone as one of my admins.                  |
-| `/admin pause`                        | Make me unresponsinve to non-admin messages.         |
-| `/admin unpause`                      | Make me responsive to non-admin messages.            |
-| `/admin kill`                         | Disconnect me from Discord.                          |
+| `/bot_state blacklist $user $why`     | Ban someone (ex. annoying/abusive) from using me.    |
+| `/bot_state unblacklist $user`        | Unban someone from using me.                         |
+| `/bot_state admin $user`              | Add someone as one of my admins.                     |
+| `/bot_state unadmin $user`            | Remove someone as one of my admins.                  |
+| `/bot_state pause`                    | Make me unresponsinve to non-admin messages.         |
+| `/bot_state unpause`                  | Make me responsive to non-admin messages.            |
+| `/bot_state kill`                     | Disconnect me from Discord.                          |
 
 ## Backlog
 | Command                       | Description                                         |
