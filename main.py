@@ -31,6 +31,8 @@ from discord_slash_commands import voice as voice_slash_commands
 discord_bot.add_application_command(voice_slash_commands.voice_slash_command_group)
 from discord_slash_commands import tts as tts_slash_commands
 discord_bot.add_application_command(tts_slash_commands.tts_slash_command_group)
+from discord_slash_commands import bot_state as bot_state_slash_commands
+discord_bot.add_application_command(bot_state_slash_commands.bot_state_slash_command_group)
 
 @discord_bot.event
 async def on_application_command_error(ctx: discord.ApplicationContext, error: discord.DiscordException):
