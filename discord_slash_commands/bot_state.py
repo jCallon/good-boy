@@ -6,7 +6,10 @@
 import discord
 
 # Custom classes for keeping track of user's permissions for this bot
-from discord_slash_commands.helpers.permissions import permissions
+import discord_slash_commands.helpers.permissions as permissions
+
+# Custom functions for denying commands based off of bot state
+import discord_slash_commands.helpers.application_context_checks as application_context_checks
 
 # =========================== #
 # Define underlying structure #
@@ -25,6 +28,8 @@ bot_state_slash_command_group = discord.SlashCommandGroup(
     #nsfw = default,
     #parent = default
 )
+
+#TODO: rename from bot_state to settings?
 
 
 
@@ -53,9 +58,9 @@ async def bot_state_blacklist(
         error_message += f"\nHere's an example command."
         error_message += f"\nBan Sell Sell $ell! from using this bot because they use it make unsolicited advertisements."
         error_message += f"\n`/admin blacklist name_of_member_to_blacklist: Sell Sell $ell! "
-            error_message += f"reason_for_blacklisting_member: Used the bot for spamming users with advertisements of their merchandise.`"
-            await ctx.respond(ephemeral=True, content=error_message)
-            return False
+        error_message += f"reason_for_blacklisting_member: Used the bot for spamming users with advertisements of their merchandise."
+        await ctx.respond(ephemeral=True, content=error_message)
+        return False
 
         # If we got here, the arguments are valid and safe to act upon
         # Try to add this user to the list of blacklisted users for this guild
@@ -103,7 +108,7 @@ async def bot_state_unblacklist(
 @bot_state_slash_command_group.command(
     name="admin",
     description="Trust a member as one of my admins in this guild.",
-    checks=[assert_author_is_bot_owner]
+    checks=[application_context_checks.assert_author_is_bot_owner]
 )
 async def bot_state_add(
     ctx,
@@ -135,7 +140,7 @@ async def bot_state_add(
 @bot_state_slash_command_group.command(
     name="unadmin",
     description="Untrust a member as one of my admins in this guild.",
-    checks=[assert_author_is_bot_owner]
+    checks=[application_context_checks.assert_author_is_bot_owner]
 )
 async def bot_state_remove(
     ctx,
@@ -169,7 +174,7 @@ async def bot_state_remove(
 @bot_state_slash_command_group.command(
     name="pause",
     description="Make me unresponsive to non-admin commands.",
-    checks=[assert_bot_is_accepting_non_admin_commands]
+    checks=[application_context_checks.assert_bot_is_accepting_non_admin_commands]
 )
 async def bot_state_pause(ctx):
     application_context_checks.bot_is_accepting_non_admin_commands = False
@@ -182,7 +187,7 @@ async def bot_state_pause(ctx):
 @bot_state_slash_command_group.command(
     name="unpause",
     description="Make me responsive to non-admin messages.",
-    checks=[assert_bot_is_not_accepting_non_admin_commands]
+    checks=[application_context_checks.assert_bot_is_not_accepting_non_admin_commands]
 )
 async def bot_state_unpause(ctx):
     application_context_checks.bot_is_accepting_non_admin_commands = True

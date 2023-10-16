@@ -9,7 +9,7 @@ import discord
 from typing import Callable
 
 # Custom classes for keeping track of user's permissions for this bot
-from discord_slash_commands.helpers.permissions import permissions
+import discord_slash_commands.helpers.permissions as permissions
 
 # =========================== #
 # Define underlying structure #
@@ -27,7 +27,7 @@ def application_context_check(
     return check_passed
 
 # Assert the bot *is* in voice chat
-def assert_bot_is_in_voice_chat(app_ctx: discord.ApplicationContext): -> bool 
+def assert_bot_is_in_voice_chat(app_ctx: discord.ApplicationContext) -> bool:
     return application_context_check(
         len(app_ctx.bot.voice_clients) != 0 and app_ctx.bot.voice_clients[0].is_connected(),
         "I must be connected to a voice chat to use this command." + \
@@ -94,7 +94,7 @@ def assert_author_is_not_blacklisted(app_ctx: discord.ApplicationContext) -> boo
         "You have been blacklisted from using any of my commands in this guild." + \
         "\nThe bot owner / admins you can appeal to are:" + appeal_string + ".")
 
-# TODO: per-guild instead
+# TODO: per-guild, save in file, perhaps userpermissions, instead, to be mutli-thread safe
 global bot_is_accepting_non_admin_commands
 bot_is_accepting_non_admin_commands = True
 
@@ -117,7 +117,7 @@ def assert_bot_is_not_accepting_non_admin_commands(app_ctx: discord.ApplicationC
 # TODO: comment
 def assert_author_is_allowed_to_call_command(app_ctx: discord.ApplicationContext) -> bool:
     # If a command is not from a guild and does not require a guild (caught by guild_only=True), it's free-reign
-    if app_ctx.guild = None:
+    if app_ctx.guild == None:
         return True
     # Bot admins are always allowed to call commands within their guild
     elif permissions.user_has_permisson("admin", app_ctx.author.id, app_ctx.guild.id) == True:

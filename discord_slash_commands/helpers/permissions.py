@@ -16,15 +16,14 @@ import discord_slash_commands.helpers.json_list as json_list
 class UserPermission(json_list.JSONListItem):
     def __init__(
         self,
-        user_id: int = 0,
+        guild_id: int = 0,
         blacklist_user_id_list: list = [],
         admin_user_id_list: list = []
     ):
         # The ID of the user who is having info kept on them
         self.guild_id = guild_id
         # A dictionary holding the different types of permissions a user can have in a guild
-        self.dict_of_user_id_list =
-        {
+        self.dict_of_user_id_list = {
             # What users this guild blacklisted from using this bot
             "blacklisted": blacklist_user_id_list,
             # What users this guild considers admins for this bot
@@ -57,7 +56,7 @@ class UserPermissionBank(json_list.JSONList):
         self.sync()
 
         # Get or create a UserPermission for guild_id
-        match_index = self.get_list_item_index(lambda user_privelage: return user_privelage.guild_id == guild_id), guild_id)
+        match_index = self.get_list_item_index(lambda user_privelage: user_privelage.guild_id == guild_id, guild_id)
         if match_index < 0:
             match_index = len(self.list)
             self.list.append(UserPermission(guild_id, [], []))
@@ -86,7 +85,7 @@ class UserPermissionBank(json_list.JSONList):
         self.sync()
 
         # Get a UserPermission for guild_id, if there is none, there's no way this user has a special permission for this guild
-        match_index = self.get_list_item_index(lambda user_privelage: return user_privelage.guild_id == guild_id), guild_id)
+        match_index = self.get_list_item_index(lambda user_privelage: user_privelage.guild_id == guild_id, guild_id)
         if match_index < 0:
             return []
 
@@ -114,6 +113,6 @@ user_permission_instance = UserPermission()
 user_permission_bank = UserPermissionBank(
     file_directory = "json",
     file_name = "user_permission_bank.json",
-    list_type_instance = tts_user_preference_instance,
+    list_type_instance = user_permission_instance,
     #max_file_size_in_bytes = default
 )

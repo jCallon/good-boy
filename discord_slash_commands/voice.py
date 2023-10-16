@@ -18,7 +18,7 @@ import discord_slash_commands.helpers.application_context_checks as application_
 
 # Create slash command group
 voice_slash_command_group = discord.SlashCommandGroup(
-    checks = [assert_author_is_allowed_to_call_command],
+    checks = [application_context_checks.assert_author_is_allowed_to_call_command],
     #default_member_permissions = default,
     description = "Voice state commands",
     #description_localizations = default,
@@ -61,7 +61,7 @@ async def voice_join(ctx):
     description="Have me leave the voice chat you are in.",
     checks=[
         application_context_checks.assert_bot_is_in_voice_chat,
-        application_context_checks.assert_bot_is_in_same_voice_chat_as_user,
+        application_context_checks.assert_bot_is_in_same_voice_chat_as_author,
         application_context_checks.assert_bot_is_not_playing_audio_in_voice_chat,
     ]
 )
@@ -82,7 +82,7 @@ async def voice_leave(ctx):
     description="Have me stop playing whatever audio I am currently playing.",
     checks=[
         application_context_checks.assert_bot_is_in_voice_chat,
-        application_context_checks.assert_bot_is_in_same_voice_chat_as_user,
+        application_context_checks.assert_bot_is_in_same_voice_chat_as_author,
         application_context_checks.assert_bot_is_playing_audio_in_voice_chat,
     ]
 )

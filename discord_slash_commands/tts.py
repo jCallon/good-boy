@@ -190,7 +190,7 @@ tts_file_info_list = TTSFileInfoList(
 # Create slash command group
 # TODO: make way for users to use TTS while other audio is playing? Seperate TTS bot connection?
 tts_slash_command_group = discord.SlashCommandGroup(
-    checks = [assert_author_is_allowed_to_call_command],
+    checks = [application_context_checks.assert_author_is_allowed_to_call_command],
     #default_member_permissions = default,
     description = "Text to speech commands",
     #description_localizations = default,
@@ -232,7 +232,7 @@ def play_next_audio_queue_source(error):
     guild_only = False,
     checks=[
         application_context_checks.assert_bot_is_in_voice_chat,
-        application_context_checks.assert_bot_is_in_same_voice_chat_as_user,
+        application_context_checks.assert_bot_is_in_same_voice_chat_as_author,
         application_context_checks.assert_bot_is_not_playing_audio_in_voice_chat,
     ]
 )

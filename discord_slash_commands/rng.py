@@ -8,13 +8,16 @@ import discord
 # RNG API
 import random
 
+# Custom functions for denying commands based off of bot state
+import discord_slash_commands.helpers.application_context_checks as application_context_checks
+
 # =========================== #
 # Define underlying structure #
 # =========================== #
 
 # Create slash command group
 rng_slash_command_group = discord.SlashCommandGroup(
-    checks = [assert_author_is_allowed_to_call_command],
+    checks = [application_context_checks.assert_author_is_allowed_to_call_command],
     #default_member_permissions = default,
     description = "Random number generation commands",
     #description_localizations = default,
