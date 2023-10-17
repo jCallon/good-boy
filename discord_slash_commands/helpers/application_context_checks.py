@@ -36,7 +36,7 @@ def assert_bot_is_in_voice_chat(app_ctx: discord.ApplicationContext) -> bool:
         "I must be connected to a voice chat to use this command." + \
          "\nPlease connect me to a voice channel to speak in via `/voice join`.")
 
-# Asser the bot *is not* in voice chat
+# Assert the bot *is not* in voice chat
 def assert_bot_is_not_in_voice_chat(app_ctx: discord.ApplicationContext) -> bool:
     return application_context_check(
         not(len(app_ctx.bot.voice_clients) != 0 and app_ctx.bot.voice_clients[0].is_connected()),
@@ -71,52 +71,52 @@ def at(user_id: int) -> str:
 # Assert the message author is the owner of this bot
 def assert_author_is_bot_owner(app_ctx: discord.ApplicationContext) -> bool:
     return application_context_check(
-        permissions.user_permission_bank.user_has_permission("bot owner", app_ctx.author.id, app_ctx.guild.id),
+        permissions.user_permission_bank.user_has_permission("bot owner", app_ctx.author.id, app_ctx.guild.id) == True,
         "You must be the bot owner to use this command." + \
-        "\nThe bot owner is {at(permissions.get_bot_owner_discord_user_id()))}.")
+        "\nThe bot owner is {at(permissions.get_bot_owner_discord_user_id())}.")
 
 # Assert the message author has admin privelages for the bot in the guild this command is being called from
 def assert_author_is_admin(app_ctx: discord.ApplicationContext) -> bool:
     return application_context_check(
-        permissions.user_permission_bank.user_has_permission("admin", app_ctx.author.id, app_ctx.guild.id),
+        permissions.user_permission_bank.user_has_permission("admin", app_ctx.author.id, app_ctx.guild.id) == True,
         "You must be one of my admins to use this command in this guild." + \
         "\nYou can get the list of my admins in this guild via `/settings admin list`.")
 
-# Assert the message author *is not* blacklisted in the guild this command is being called from
+# Assert the message author is not blacklisted in the guild this command is being called from
 def assert_author_is_not_blacklisted(app_ctx: discord.ApplicationContext) -> bool:
     return application_context_check(
-        permissions.user_permission_bank.user_has_permission("blacklisted", app_ctx.author.id, app_ctx.guild.id),
-        "You have been blacklisted from using any of my commands in this guild." + \
-        "\nYou can get the list of bot owner / admins you can appeal to via `/settings admin list`.")
+        permissions.user_permission_bank.user_has_permission("blacklisted", app_ctx.author.id, app_ctx.guild.id) == False,
+        "You have been blacklisted from using most of my commands in this guild." + \
+        "\nYou can get the list of admins you can appeal to via `/settings admin list`.")
 
-# TODO: comment
+# Assert the bot *is* accepting commands from non-admin users in the guild this command is being called from
 def assert_bot_is_accepting_non_admin_commands(app_ctx: discord.ApplicationContext) -> bool:
     return application_context_check(
         permissions.user_permission_bank.get_is_locked(app_ctx.guild.id) == False,
         "The bot must be accepting non-admin commands to use this command, which it currently isn't." + \
         "\nAn admin can reverse this via `/settings lock stop`.")
 
-# TODO: comment
+# Assert the bot *is not* accepting commands from non-admin users in the guild this command is being called from
 def assert_bot_is_not_accepting_non_admin_commands(app_ctx: discord.ApplicationContext) -> bool:
     return application_context_check(
         permissions.user_permission_bank.get_is_locked(app_ctx.guild.id) == True,
         "The bot must not be accepting non-admin commands to use this command, which it currently isn't." + \
         "\nAn admin can reverse this via `/settings lock start`.")
 
-# TODO: comment
+# Assert the message author is allowed to call the this command from their source
 def assert_author_is_allowed_to_call_command(app_ctx: discord.ApplicationContext) -> bool:
-    # If a command is not from a guild and does not require a guild (caught by guild_only=True), it's free-reign
+    # If a command is not from a guild and does not require a guild (caught by guild_only=True), it's generally free-reign
     if app_ctx.guild == None:
         return True
 
     # Bot admins are always allowed to call commands within their guild
-    elif permissions.user_permission_bank.user_has_permission("admin", app_ctx.author.id, app_ctx.guild.id) == True:
+    if permissions.user_permission_bank.user_has_permission("admin", app_ctx.author.id, app_ctx.guild.id) == True:
         return True
 
     # If the author is blacklisted in this guild, their command is not allowed
     if permissions.user_permission_bank.user_has_permission("blacklisted", app_ctx.author.id, app_ctx.guild.id) == True:
         return assert_author_is_not_blacklisted(app_ctx)
 
-    # The author called this from guild, are not an admin in the guild, and are not blacklisted in the guild
+    # The author called this from a guild, are not an admin in that guild, and are not blacklisted in that guild
     # Whether their command is allowed is up to whether the bot is currently accepting non-admin commands
     return assert_bot_is_accepting_non_admin_commands(app_ctx)
