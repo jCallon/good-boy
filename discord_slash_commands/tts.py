@@ -232,7 +232,7 @@ def play_next_audio_queue_source(error):
     guild_only = False,
     checks=[
         application_context_checks.assert_bot_is_in_voice_chat,
-        application_context_checks.assert_bot_is_in_same_voice_chat_as_user,
+        application_context_checks.assert_bot_is_in_same_voice_chat_as_author,
         application_context_checks.assert_bot_is_not_playing_audio_in_voice_chat,
     ]
 )

@@ -62,7 +62,7 @@ async def voice_join(ctx):
     description="Have me leave the voice chat you are in.",
     checks=[
         application_context_checks.assert_bot_is_in_voice_chat,
-        application_context_checks.assert_bot_is_in_same_voice_chat_as_user,
+        application_context_checks.assert_bot_is_in_same_voice_chat_as_author,
         application_context_checks.assert_bot_is_not_playing_audio_in_voice_chat,
     ]
 )
@@ -83,7 +83,7 @@ async def voice_leave(ctx):
     description="Have me stop playing whatever audio I am currently playing.",
     checks=[
         application_context_checks.assert_bot_is_in_voice_chat,
-        application_context_checks.assert_bot_is_in_same_voice_chat_as_user,
+        application_context_checks.assert_bot_is_in_same_voice_chat_as_author,
         application_context_checks.assert_bot_is_playing_audio_in_voice_chat,
     ]
 )
