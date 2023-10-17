@@ -12,6 +12,7 @@ pip install gtts
 # Make a file to read your bot's token from
 touch .env
 # TOKEN = $my_bot_token
+# BOT_OWNER_DISCORD_USER_ID = $my_discord_user_id
 
 # Run the bot
 python3 main.py

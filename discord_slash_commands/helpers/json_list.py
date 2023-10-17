@@ -25,7 +25,7 @@ class JSONListItem:
     def from_dict(self, dictionary: dict) -> None:
         raise NotImplementedError
 
-    # Return a copy of this JSTONListItem (by value, not by reference)
+    # Return a copy of this JSONListItem (by value, not by reference)
     def copy(self):
         raise NotImplementedError
     
