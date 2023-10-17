@@ -15,6 +15,12 @@ import os
 # Define underlying structure #
 # =========================== #
 
+# Return the bot owner's Discord user ID
+def get_bot_owner_discord_user_id() -> int:
+    return int(os.getenv("BOT_OWNER_DISCORD_USER_ID"))
+
+
+
 # Define an instance of information held user permissions for a single guild
 class GuildPermission(json_list.JSONListItem):
     def __init__(
@@ -54,7 +60,7 @@ class GuildPermission(json_list.JSONListItem):
 
     # Return a copy of this class (by value, not by reference)
     def copy(self):
-        return UserPermission(
+        return GuildPermission(
             self.guild_id,
             self.is_locked,
             self.dict_of_user_id_list["blacklisted"],
@@ -65,7 +71,7 @@ class GuildPermission(json_list.JSONListItem):
 
 # Define an instance of information held user permissions for all guilds
 class GuildPermissionBank(json_list.JSONList):
-    # Define function for changing a list from UserPermission.dict_of_user_id_list for guild_id
+    # Define function for changing a list from GuildPermission.dict_of_user_id_list for guild_id
     def modify_user_id_list(self, list_name: str, list_operation: str, user_id: int, guild_id: int):
         # Do not allow illegal operations or operands
         if not(list_name == "blacklisted" or list_name == "admin") or not(list_operation == "add" or list_operation == "remove"):
@@ -74,11 +80,11 @@ class GuildPermissionBank(json_list.JSONList):
         # Get the latest updates
         self.sync()
 
-        # Get or create a UserPermission for guild_id
+        # Get or create a GuildPermission for guild_id
         match_index = self.get_list_item_index(lambda user_privelage, guild_id: user_privelage.guild_id == guild_id, guild_id)
         if match_index < 0:
             match_index = len(self.list)
-            self.list.append(UserPermission(guild_id))
+            self.list.append(GuildPermission(guild_id))
         
         # Do list_operation, don't self.write() if it doesn't modify any data
         if list_operation == "add":
@@ -94,7 +100,7 @@ class GuildPermissionBank(json_list.JSONList):
         self.write()
         return True
 
-    # Define function for getting a list from UserPermission.dict_of_user_id_list for guild_id
+    # Define function for getting a list from GuildPermission.dict_of_user_id_list for guild_id
     def get_user_id_list(self, list_name: str, guild_id: int) -> list:
         # Do not allow illegal operations
         if not(list_name == "blacklisted" or list_name == "admin"):
@@ -103,11 +109,11 @@ class GuildPermissionBank(json_list.JSONList):
         # Get the latest changes
         self.sync()
 
-        # Get or create a UserPermission for guild_id
+        # Get or create a GuildPermission for guild_id
         match_index = self.get_list_item_index(lambda user_privelage, guild_id: user_privelage.guild_id == guild_id, guild_id)
         if match_index < 0:
             match_index = len(self.list)
-            self.list.append(UserPermission(guild_id))
+            self.list.append(GuildPermission(guild_id))
 
         # Return match
         return self.list[match_index].dict_of_user_id_list[permission_type]
@@ -126,11 +132,11 @@ class GuildPermissionBank(json_list.JSONList):
         # Get the latest updates
         self.sync()
 
-        # Get or create a UserPermission for guild_id, if no changes will happen, don't save them
+        # Get or create a GuildPermission for guild_id, if no changes will happen, don't save them
         match_index = self.get_list_item_index(lambda user_privelage, guild_id: user_privelage.guild_id == guild_id, guild_id)
         if match_index < 0:
             match_index = len(self.list)
-            self.list.append(UserPermission(guild_id))
+            self.list.append(GuildPermission(guild_id))
         elif self.list[match_index].is_locked == new_lock_value:
             return
 
@@ -145,26 +151,20 @@ class GuildPermissionBank(json_list.JSONList):
         # Get the latest updates
         self.sync()
 
-        # Get or create a UserPermission for guild_id
+        # Get or create a GuildPermission for guild_id
         match_index = self.get_list_item_index(lambda user_privelage, guild_id: user_privelage.guild_id == guild_id, guild_id)
         if match_index < 0:
             match_index = len(self.list)
-            self.list.append(UserPermission(guild_id))
+            self.list.append(GuildPermission(guild_id))
 
         # Return whether this guild is_locked
         return self.list[match_index].is_locked
 
 
 
-# Return the bot owner's Discord user ID
-def get_bot_owner_discord_user_id() -> int:
-    return int(os.getenv("BOT_OWNER_DISCORD_USER_ID"))
-
-
-
 # Create class instances
-guild_permission_instance = UserPermission()
-guild_permission_bank = UserPermissionBank(
+guild_permission_instance = GuildPermission()
+guild_permission_bank = GuildPermissionBank(
     file_directory = "json",
     file_name = "user_permission_bank.json",
     list_type_instance = guild_permission_instance,

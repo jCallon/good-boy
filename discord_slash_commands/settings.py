@@ -5,8 +5,8 @@
 # General discord API
 import discord
 
-# Custom classes for keeping track of user's permissions for this bot
-import discord_slash_commands.helpers.permissions as permissions
+# Get user permissions in this guild
+from discord_slash_commands.helpers.guild_permission import guild_permission_bank
 
 # Custom functions for denying commands based off of bot state
 import discord_slash_commands.helpers.application_context_checks as application_context_checks
@@ -68,7 +68,7 @@ async def blacklist_add(
     member_to_blacklist = ctx.guild.get_member_named(name_of_member_to_blacklist)
     if member_to_blacklist == None:
         error_message += f"\nI could not find a member in this guild named {name_of_member_to_blacklist}."
-    if member_to_blacklist != None and permissions.user_permission_bank.user_has_permission("admin", member_to_blacklist.id, ctx.guild.id):
+    if member_to_blacklist != None and guild_permission_bank.user_has_permission("admin", member_to_blacklist.id, ctx.guild.id):
         error_message += f"\nYou cannot blacklist other admins. Please ask the bot owner to un-admin the offending admin."
     if len(reason_for_blacklisting_member) < 1:
         error_message += f"\nPlease give a reason you are blacklisting this member (it will be visible to all unless deleted for record-keeping)."
@@ -84,7 +84,7 @@ async def blacklist_add(
 
     # If we got here, the arguments are valid and safe to act upon
     # Try to add this user to the list of blacklisted users for this guild
-    if permissions.user_permission_bank.modify_user_permission("blacklisted", "add", member_to_blacklist.id, ctx.guild.id) == False:
+    if guild_permission_bank.modify_user_id_list("blacklisted", "add", member_to_blacklist.id, ctx.guild.id) == False:
         await ctx.respond(ephemeral=True, content=f"{name_of_member_to_blacklist} is already blacklisted in this guild.")
         return False
 
@@ -118,7 +118,7 @@ async def blacklist_remove(
 
     # If we got here, the arguments are valid and safe to act upon
     # Try to remove this user from the list of blacklisted users for this guild
-    if permissions.user_permission_bank.modify_user_permission("blacklisted", "remove", member_to_unblacklist.id, ctx.guild.id) == False:
+    if guild_permission_bank.modify_user_id_list("blacklisted", "remove", member_to_unblacklist.id, ctx.guild.id) == False:
         await ctx.respond(ephemeral=True, content=f"{name_of_member_to_unblacklist} is already not blacklisted in this guild.")
         return False
 
@@ -132,7 +132,7 @@ async def blacklist_remove(
     description="See the members blacklisted in this guild."
 )
 async def blacklist_list(ctx):
-    blacklist_user_id_list = permissions.user_permission_bank.get_user_permission("blacklisted", ctx.guild.id)
+    blacklist_user_id_list = guild_permission_bank.get_user_id_list("blacklisted", ctx.guild.id)
     response = ""
     for user_id in blacklist_user_id_list:
         response += f"<@{user_id}>,"
@@ -190,7 +190,7 @@ async def admin_add(
         return False
 
     # If we got here, the arguments are valid and safe to act upon
-    if permissions.user_permission_bank.modify_user_permission("admin", "add", member_to_admin.id, ctx.guild.id) == False:
+    if guild_permission_bank.modify_user_id_list("admin", "add", member_to_admin.id, ctx.guild.id) == False:
         await ctx.respond(ephemeral=True, content=f"{name_of_member_to_admin} is already a bot admin in this guild.")
         return False
 
@@ -223,7 +223,7 @@ async def admin_remove(
         return False
 
     # If we got here, the arguments are valid and safe to act upon
-    if permissions.user_permission_bank.modify_user_permission("admin", "remove", member_to_unadmin.id, ctx.guild.id) == False:
+    if guild_permission_bank.modify_user_id_list("admin", "remove", member_to_unadmin.id, ctx.guild.id) == False:
         await ctx.respond(ephemeral=True, content=f"{name_of_member_to_unadmin} is already not a bot admin in this guild.")
         return False
 
@@ -239,7 +239,7 @@ async def admin_remove(
     checks=[]
 )
 async def admin_list(ctx):
-    admin_user_id_list = permissions.user_permission_bank.get_user_permission("admin", ctx.guild.id)
+    admin_user_id_list = guild_permission_bank.get_user_id_list("admin", ctx.guild.id)
     response = ""
     for user_id in admin_user_id_list:
         response += f"<@{user_id}>,"
@@ -278,7 +278,7 @@ lock_slash_command_group = settings_slash_command_group.create_subgroup(
     checks=[application_context_checks.assert_bot_is_accepting_non_admin_commands]
 )
 async def settings_pause(ctx):
-    permissions.user_permission_bank.set_is_locked(True, ctx.guild.id)
+    guild_permission_bank.set_is_locked(True, ctx.guild.id)
     await ctx.respond(ephemeral=False, content=f"I will no longer accept non-admin commands until the next `/settings lock stop`.")
     return True
 
@@ -291,7 +291,7 @@ async def settings_pause(ctx):
     checks=[application_context_checks.assert_bot_is_not_accepting_non_admin_commands]
 )
 async def settings_unpause(ctx):
-    permissions.user_permission_bank.set_is_locked(False, ctx.guild.id)
+    guild_permission_bank.set_is_locked(False, ctx.guild.id)
     await ctx.respond(ephemeral=False, content=f"I will accept non-admin commands until the next `/settings lock start`.")
     return True
 
