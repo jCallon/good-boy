@@ -11,12 +11,16 @@ import discord_slash_commands.helpers.json_list as json_list
 # Import operating system module
 import os
 
+# Import function for loading environment variables
+from dotenv import load_dotenv
+
 # =========================== #
 # Define underlying structure #
 # =========================== #
 
 # Return the bot owner's Discord user ID
 def get_bot_owner_discord_user_id() -> int:
+    load_dotenv()
     return int(os.getenv("BOT_OWNER_DISCORD_USER_ID"))
 
 
