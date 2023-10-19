@@ -1,19 +1,26 @@
-# ======================= #
-# Import public libraries #
-# ======================= #
+"""PyCord.SlashCommand for getting random numbers and decisions.
 
-# General discord API
-import discord
+This file defines slash commands for letting a member make decisions using
+random number generation.
+"""
 
-# RNG API
+#==============================================================================#
+# Import libraries                                                             #
+#==============================================================================#
+
+# Import RNG API
 import random
 
-# =========================== #
-# Define underlying structure #
-# =========================== #
+# Import Discord Python API
+import discord
 
-# Create slash command group
-# TODO: author permissions check
+#==============================================================================#
+# Define underlying structure                                                  #
+#==============================================================================#
+
+# Create RNG slash command group
+# TODO: Author permissions check
+# TODO: Rename to random?
 rng_slash_command_group = discord.SlashCommandGroup(
     #checks = default,
     #default_member_permissions = default,
@@ -29,82 +36,129 @@ rng_slash_command_group = discord.SlashCommandGroup(
 
 
 
-# Define function for letting user roll a number
-@rng_slash_command_group.command(name="roll", description="Roll a random number.")
+@rng_slash_command_group.command(
+    name="roll",
+    description="Roll a random number."
+)
 async def rng_roll(
     ctx,
-    is_whole: discord.Option(bool, description="Whether the number rolled should be whole."),
-    minimum_value: discord.Option(float, description="The lowest number that can be rolled, inclusive."),
-    maximum_value: discord.Option(float, description="The highest number that can be rolled, inclusive."),
+    is_whole: discord.Option(
+        bool,
+        description="Whether the number rolled should be whole."
+    ),
+    min_value: discord.Option(
+        float,
+        description="The lowest number allowed to be rolled, inclusive."
+    ),
+    max_value: discord.Option(
+        float,
+        description="The highest number allowed to be rolled, inclusive."
+    ),
 ):
-    # Determine if the arguments are valid
-    error_message = ""
-    if maximum_value <= minimum_value:
-        error_message += f"\nPlease give me a maximum value that is greater than the minimum value."
-    if (maximum_value - minimum_value) < 1 and is_whole == True:
-        error_message += f"\nI cannot roll a whole number between {minimum_value} and {maximum_value}."
+    """Tell bot to give you a random number.
 
-    # If the user's arguments weren't valid, give them verbose error messages and an example to help them
-    if error_message != "":
-        error_message += f"\nHere's an example command."
-        error_message += f"\nSimulate rolling a 6 sided-die by rolling a whole number between (and including) 1 and 6."
-        error_message += f"\n`\\rng roll True 1 6`"
-        await ctx.respond(ephemeral=True, content=error_message)
+    Make the bot give you back a random number, between and including
+    minimum_valie and max_value. The number given back will be an integer
+    if is_whole, otherwise a float.
+
+    Args:
+        ctx: The context this SlashCommand was called under
+        is_whole: Whether the result should be an integer ot float
+        min_value: The smallest value, inclusive, allowed to be rolled
+        min_value: The largest value, inclusive, allowed to be rolled
+    """
+    # Determine if the author's arguments are valid
+    err_msg = ""
+    if max_value <= min_value:
+        err_msg += "\nPlease give a max_value > min_value."
+    if (max_value - min_value) < 1 and is_whole is True:
+        err_msg += "\nI cannot roll >1 value from these arguments."
+
+    # If the author's arguments were invalid,
+    # give them verbose error messages and an example to help them
+    if err_msg != "":
+        err_msg += "\nHere's an example command."
+        err_msg += "\nSimulate rolling a 6 sided-die."
+        err_msg += "\n`/rng roll is_whole: true min_value: 1 max_value: 6`"
+        await ctx.respond(ephemeral=True, content=err_msg)
         return False
 
     # If we got here, the arguments are valid and safe to act upon
     # Send back a number matching their arguments
-    if is_whole == True:
-        await ctx.respond(ephemeral=False, content=str(random.randint(int(minimum_value), int(maximum_value))))
+    random_number = 0
+    if is_whole is True:
+        random_number = random.randint(int(min_value), int(max_value))
     else:
-        await ctx.respond(ephemeral=False, content=str(round(minimum_value + (random.random() * (maximum_value - minimum_value)), 2)))
+        random_number = min_value + (random.random() * (max_value - min_value))
+        random_number = round(random_number, 2)
+    await ctx.respond(ephemeral=False, content=random_number)
     return True
 
 
 
 # Define function for letting user pick an option out of a list
-@rng_slash_command_group.command(name="pick", description="Pick one or more random items from a list.")
+@rng_slash_command_group.command(
+    name="pick",
+    description="Pick one or more random items from a list."
+)
 async def rng_pick(
     ctx,
-    number_of_items_to_pick: discord.Option(int, "The number of items allowed to be picked from the list."),
-    repeats_allowed: discord.Option(bool, "Whether an item is allowed to be picked more than once."),
-    items_to_pick_from: discord.Option(str, "A comma seperated list of items allowed to be picked.")
+    num_results: discord.Option(
+        int,
+        "The number of items you expect in your result."
+    ),
+    allow_repeats: discord.Option(
+        bool,
+        "Whether an item is allowed to be picked more than once."
+    ),
+    options: discord.Option(
+        str,
+        "A comma seperated list of items allowed to be picked."
+    )
 ):
-    # Split list, given as a monolithic comma-seperated string, into array elements
-    items_to_pick_from = items_to_pick_from.split(",")
+    """Tell bot to pick items from a list for you.
 
-    # Determine if the arguments are valid
-    error_message = ""
-    if number_of_items_to_pick < 1:
-        error_message += f"\nPlease give me a reasonable number of items to pick (more than 0)."
-    if len(items_to_pick_from) < 2:
-        error_message += f"\nPlease give me a reasonable number of items to choose from (more than 1)."
-    if number_of_items_to_pick > len(items_to_pick_from) and repeats_allowed == False:
-        error_message += f"\nCannot pick {number_of_items_to_pick} unique items from a list of {len(items_to_pick_from)} items."
+    Make the bot pick num_results items from your options. If allow_repeats,
+    the same item may be picked from your options more than once.
 
-    # If the user's arguments weren't valid, give them verbose error messages and an example to help them
-    if error_message != "":
-        error_message += f"\nHere's an example command."
-        error_message += f"\nPick 2 different kind of juice to make popsicles from. The options are apple juice, orange juice, and grape juice."
-        error_message += f"\n`\\rng pick 2 False \"apple juice, orange juice, grape juice\"`"
-        await ctx.respond(ephemeral=True, content=error_message)
+    Args:
+        ctx: The context this SlashCommand was called under
+        num_results: The number of items that should be picked by the end
+        allow_repeats: Whether an item may be picked multiple times
+        options: The string holding a comma-seperated list of items to pick from
+    """
+    # Split monolithic comma-seperated string of options into list
+    options = options.split(",")
+
+    # Determine if the author's arguments are valid
+    err_msg = ""
+    if num_results < 1:
+        err_msg += "\nPlease use num_results > 0."
+    if len(options) < 2:
+        err_msg += "\nPlease have >1 item in your options."
+    if num_results > len(options) and allow_repeats is False:
+        err_msg += f"\nCan't pick {num_results} unique items from your options."
+
+    # If the author's arguments were invalid,
+    # give them verbose error messages and an example to help them
+    if err_msg != "":
+        err_msg += "\nHere's an example command."
+        err_msg += "\nPick 2 different kind of juice to make popsicles from."
+        err_msg += "\n`/rng pick num_results: 2 allow_repeats: false "
+        err_msg += "options: apple juice,orange juice,grape juice`"
+        await ctx.respond(ephemeral=True, content=err_msg)
         return False
-    
+
     # If we got here, the arguments are valid and safe to act upon
     # Make a list of items picked
-    items_picked_list = []
-    while number_of_items_to_pick > 0:
-        index_of_item_picked = random.randint(0, len(items_to_pick_from) - 1)
-        if repeats_allowed == True:
-            items_picked_list.append(items_to_pick_from[index_of_item_picked])
-        if repeats_allowed == False:
-            items_picked_list.append(items_to_pick_from.pop(index_of_item_picked))
-        number_of_items_to_pick -= 1
+    result = []
+    while num_results > 0:
+        index_of_item_picked = random.randint(0, len(options) - 1)
+        result.append(options[index_of_item_picked])
+        if allow_repeats is False:
+            options.pop(index_of_item_picked)
+        num_results -= 1
 
     # Give the user back the list of items picked
-    items_picked_str = ""
-    items_picked_str = items_picked_list.pop(0)
-    while len(items_picked_list) > 0:
-        items_picked_str += ", " + items_picked_list.pop(0)
-    await ctx.respond(ephemeral=False, content=items_picked_str)
+    await ctx.respond(ephemeral=False, content=', '.join(result))
     return True
