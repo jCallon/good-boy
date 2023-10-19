@@ -1,3 +1,5 @@
+[![linting: pylint](https://img.shields.io/badge/linting-pylint-yellowgreen)](https://github.com/pylint-dev/pylint)
+
 # good-boy
 > Hello, my name is Silas, I'm a bot for messing around in Discord voice and text chat!
 

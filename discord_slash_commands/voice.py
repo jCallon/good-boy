@@ -1,24 +1,33 @@
-# ======================= #
-# Import public libraries #
-# ======================= #
+"""PyCord.SlashCommand for altering PyCord Discord bot voice state.
 
-# General discord API
+This file defines slash commands for letting a member connect, disconnect, or
+otherwise modify the voice state of the bot. These slash commands don't do much
+themselves, but enable all other slash commands used by the bot that play or
+otherwise interface with audio in voice chat.
+"""
+
+#==============================================================================#
+# Import public libraries                                                      #
+#==============================================================================#
+
+# Import Discord Python API
 import discord
 
-# Custom functions for denying commands based off of bot state
-import discord_slash_commands.helpers.application_context_checks as application_context_checks
+# Import functions for asserting bot state
+import discord_slash_commands.helpers.application_context_checks as ctx_check
 
-# =========================== #
-# Define underlying structure #
-# =========================== #
+#==============================================================================#
+# Define underlying structure                                                  #
+#==============================================================================#
 
-# Silas currently only supports being in one voice chat at a time, and all coding of Silas assumes this
+# NOTE: This bot currently only supports being in one voice chat at a time,
+# and all coding of this bot assumes this.
 
 
 
-# Create slash command group
+# Create voice slash command group
 voice_slash_command_group = discord.SlashCommandGroup(
-    checks = [application_context_checks.assert_author_is_allowed_to_call_command],
+    checks = [ctx_check.assert_author_is_allowed_to_call_command],
     #default_member_permissions = default,
     description = "Voice state commands",
     #description_localizations = default,
@@ -32,63 +41,93 @@ voice_slash_command_group = discord.SlashCommandGroup(
 
 
 
-# Define function for letting user connect the bot to voice chat
 @voice_slash_command_group.command(
     name="join",
-    description="Have me join the voice chat you are in.",
-    checks=[application_context_checks.assert_bot_is_not_in_voice_chat]
+    description="Make me join your voice chat.",
+    checks=[ctx_check.assert_bot_is_not_in_voice_chat]
 )
 async def voice_join(ctx):
-    # Determine if the user state is valid
-    # If the user's state isn't valid, give them verbose error messages
+    """Tell bot to join your voice chat.
+
+    Connects bot to message author's voice chat, if bot is not already in a
+    voice chat, and the message author is in a valid voice chat to join.
+
+    Args:
+        ctx: The context this SlashCommand was called under
+    """
+    # We join the author's voice chat, if they aren't in one, we can't act
     if not ctx.author.voice or not ctx.author.voice.channel:
-        await ctx.respond(ephemeral=True, content=f"Please join a voice channel. I join the channel you are in.")
+        await ctx.respond(
+            ephemeral = True,
+            content = "Please join a voice chat. I join the chat you are in."
+        )
         return False
 
-    # If we got here, the user state is valid and safe to act upon
-    # Join the user's voice chat
-    # TODO: play a high bark on entry
+    # Join the author's voice chat
+    # TODO: Play a high bark on entry
     await ctx.author.voice.channel.connect()
-
-    await ctx.respond(ephemeral=False, delete_after=60*30, content=f"I have tried to connect to your voice channel.")
+    await ctx.respond(
+        ephemeral = False,
+        delete_after = 60*30,
+        content = "I have tried to connect to your voice channel."
+    )
     return True
 
 
 
-# Define function for letting user disconnect the bot from voice chat
 @voice_slash_command_group.command(
     name="leave",
-    description="Have me leave the voice chat you are in.",
+    description="Make me leave your voice chat.",
     checks=[
-        application_context_checks.assert_bot_is_in_voice_chat,
-        application_context_checks.assert_bot_is_in_same_voice_chat_as_author,
-        application_context_checks.assert_bot_is_not_playing_audio_in_voice_chat,
+        ctx_check.assert_bot_is_in_voice_chat,
+        ctx_check.assert_bot_is_in_same_voice_chat_as_author,
+        ctx_check.assert_bot_is_not_playing_audio_in_voice_chat,
     ]
 )
 async def voice_leave(ctx):
-    # Leave the current voice channel
-    # TODO: play a low bark on exit
-    await ctx.voice_client.disconnect()
+    """Tell bot to leave your voice chat.
 
-    await ctx.respond(ephemeral=False, delete_after=60*30, content=f"I have tried to disconnect from your voice channel.")
+    Disconnect the bot from your voice chat if it's not busy playing audio.
+
+    Args:
+        ctx: The context this SlashCommand was called under
+    """
+    # Leave the author's voice chat
+    # TODO: Play a low bark on exit
+    await ctx.voice_client.disconnect()
+    await ctx.respond(
+        ephemeral=False,
+        delete_after=60*30,
+        content="I have tried to disconnect from your voice channel."
+    )
     return True
 
 
 
-# Define function for letting user stop the current audio being played
-# TODO: support audio queue instead of only being able to play one thing at a time
+# TODO: Support audio queue,
+#       instead of only being able to play one audio at a time
 @voice_slash_command_group.command(
     name="stop",
-    description="Have me stop playing whatever audio I am currently playing.",
+    description="Make me stop whatever audio I am playing in your voice chat.",
     checks=[
-        application_context_checks.assert_bot_is_in_voice_chat,
-        application_context_checks.assert_bot_is_in_same_voice_chat_as_author,
-        application_context_checks.assert_bot_is_playing_audio_in_voice_chat,
+        ctx_check.assert_bot_is_in_voice_chat,
+        ctx_check.assert_bot_is_in_same_voice_chat_as_author,
+        ctx_check.assert_bot_is_playing_audio_in_voice_chat,
     ]
 )
 async def voice_stop(ctx):
+    """Tell bot to stop currently playing audio.
+
+    Make bot stop playing the audio it is currently playing in your voice chat.
+
+    Args:
+        ctx: The context this SlashCommand was called under
+    """
     # Stop the playing of the audio currently playing in voice chat
     ctx.voice_client.stop()
-
-    await ctx.respond(ephemeral=False, delete_after=60, content=f"I have tried to stop the audio I am playing in your voice channel.")
+    await ctx.respond(
+        ephemeral=False,
+        delete_after=60,
+        content="I have tried to stop what was playing in your voice chat."
+    )
     return True
