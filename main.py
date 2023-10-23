@@ -39,7 +39,7 @@ load_dotenv()
 
 # Declare PyCord Discord bot, the interface between Discord and the bot code,
 # and add all PyCord.SlashCommand desired to be added to the to the bot
-discord_bot = discord.Bot()
+discord_bot = discord.Bot(intents=discord.Intents.default())
 discord_bot.add_application_command(rng.rng_slash_command_group)
 discord_bot.add_application_command(voice.voice_slash_command_group)
 discord_bot.add_application_command(tts.tts_slash_command_group)
@@ -93,6 +93,8 @@ async def on_application_command_error(
 #==============================================================================#
 # Run Discord bot                                                              #
 #==============================================================================#
+
+
 
 # Get bot token from environment variables
 BOT_TOKEN = str(os.getenv("TOKEN"))

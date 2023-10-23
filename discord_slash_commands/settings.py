@@ -85,9 +85,13 @@ async def blacklist_add(
         reason: The reason for blacklisting the member matching member_name
     """
     # TODO: store reason?
+
+    # Update and read member cache
+    await ctx.guild.query_members(member_name)
+    member_to_blacklist = ctx.guild.get_member_named(member_name)
+
     # Determine if the author's arguments are valid
     err_msg = ""
-    member_to_blacklist = ctx.guild.get_member_named(member_name)
     if member_to_blacklist is None:
         err_msg += f"\nI could not find {member_name} in this guild."
     if member_to_blacklist != None and \
@@ -158,9 +162,12 @@ async def blacklist_remove(
         ctx: The context this SlashCommand was called under
         member_name: The name of the member of this guild to affect
     """
+    # Update and read member cache
+    await ctx.guild.query_members(member_name)
+    member_to_unblacklist = ctx.guild.get_member_named(member_name)
+
     # Determine if the author's arguments are valid
     err_msg = ""
-    member_to_unblacklist = ctx.guild.get_member_named(member_name)
     if member_to_unblacklist is None:
         err_msg += f"\nI could not find {member_name} in this guild."
 
@@ -267,11 +274,12 @@ async def admin_add(
         ctx: The context this SlashCommand was called under
         member_name: The name of the member of this guild to affect
     """
+    # Update and read member cache
+    await ctx.guild.query_members(member_name)
+    member_to_admin = ctx.guild.get_member_named(member_name)
+
     # Determine if the author's arguments are valid
     err_msg = ""
-    member_to_admin = ctx.guild.get_member_named(member_name)
-    # TODO: remove debugging
-    print(ctx.guild.members)
     if member_to_admin is None:
         err_msg += f"\nI could not find {member_name} in this guild."
 
@@ -327,9 +335,12 @@ async def admin_remove(
         ctx: The context this SlashCommand was called under
         member_name: The name of the member of this guild to affect
     """
+    # Update and read member cache
+    await ctx.guild.query_members(member_name)
+    member_to_unadmin = ctx.guild.get_member_named(member_name)
+
     # Determine if the arguments are valid
     err_msg = ""
-    member_to_unadmin = ctx.guild.get_member_named(member_name)
     if member_to_unadmin is None:
         err_msg += f"\nI could not find {member_name} in this guild."
 
@@ -484,4 +495,143 @@ async def settings_kill(ctx):
     """
     await ctx.respond(ephemeral=False, content="Powering off. Goodbye!")
     await ctx.bot.close()
+    return True
+
+
+
+@settings_slash_command_group.command(
+    name="get_invite_link",
+    description="Get an invite link to invite the bot to a guild.",
+    checks=[ctx_check.assert_author_is_bot_owner]
+)
+async def settings_get_invite_link(ctx):
+    """Tell bot to give you a link to invite it to other guilds.
+
+    Generate an invite link for the bot you can use yourself or share with
+    others from the permissions below.
+
+    Args:
+        ctx: The context this SlashCommand was called under
+    """
+    # See https://docs.pycord.dev/en/stable/api/data_classes.html#permissions
+    # See the OAuth2 panel in your Discord Developer Portal too
+    perm = discord.Permissions()
+    # This bot does not need to create invites
+    perm.create_instant_invite = False
+    # This bot, although it can prevent certain members from using itself,
+    # will not kick members from the guild outright
+    perm.kick_members = False
+    # This bot, although it can prevent certain members from using itself,
+    # will not ban members from the guild outright
+    perm.ban_members = False
+    # This bot does not need administrator privelages in any guild
+    perm.administrator = False
+    # The bot does not create, delete, or create channels
+    perm.manage_channels = False
+    # The bot does not manage or modify guild properties
+    perm.manage_guild = False
+    # This bot will want to be able to add reactions to its own /poll messages
+    # TODO: this command is not implemented yet, change later if needed
+    perm.add_reactions = False
+    # This bot does not need to access the guild audit logs
+    perm.view_audit_log = False
+    # This bot is not more important than any other member speaking
+    perm.priority_speaker = False
+    # This bot cannot video stream, only play audio
+    # TODO: change this if this is ever not the case
+    perm.stream = False
+    # This bot does not need to view any specific channels
+    # TODO: ... Right? Test it does not need this to run slash commands
+    #       in-channel or see reactions to its own messages
+    perm.view_channel = False
+    # This is an alias for view_channel
+    perm.read_messages = False
+    # This bot sends messages for /reminder and /poll
+    # TODO: these commands are not implemented yet, change later if needed
+    perm.send_messages = False
+    # This bot uses TTS in voice chat, not text chat
+    perm.send_tts_messages = False
+    # This bot deletes some of its own messages for cleanup purposes
+    perm.manage_messages = True
+    # This bot may send links to other pages
+    perm.embed_links = True
+    # This bot can send files via /local get
+    # TODO: this command is not implemented yet, change later if needed
+    perm.attach_files = False
+    # This bot has no need to read messages that are not immediately to itself
+    perm.read_message_history = False
+    # This bot has no need to mention everyone
+    perm.mention_everyone = False
+    # This bot has no need for emojis from other guilds
+    perm.external_emojis = False
+    # This is an alias for external_emojis
+    perm.use_external_emojis = False
+    # This bot has no need to get guild insights
+    perm.view_guild_insights = False
+    # This bot connects to voice chat for a variety of reasons
+    perm.connect = True
+    # This bot speaks in voice chat for a variety of reasons
+    perm.speak = True
+    # This bot does not mute members
+    perm.mute_members = False
+    # This bot does not deafen members
+    perm.deafen_members = False
+    # This bot does not move members
+    perm.move_members = False
+    # This bot does not currently listen to anyone in voice chat
+    # TODO: change this if this is ever not the case
+    perm.use_voice_activation = False
+    # This bot has no need to change its own nickname
+    perm.change_nickname = False
+    # This bot has no need to change other's nicknames
+    perm.manage_nicknames = False
+    # This bot has no need to create or edit guild-wide roles,
+    # it manages its own roles internally
+    perm.manage_roles = False
+    # This is an alias for manage_roles
+    perm.manage_permissions = False
+    # This bot has no need to create, edit, or delete webhooks
+    # TODO: update if this ever changes, such as for monitoring voice activity
+    perm.manage_webhooks = False
+    # This bot has no need to create, edit, or delete emojis,
+    # it only needs to react with and read them for /poll
+    perm.manage_emojis = False
+    # This is an alias for manage_emojis
+    perm.manage_emojis_and_stickers = False
+    # This bot has no need to use slash commands, only receive them
+    perm.use_slash_commands = False
+    # This is an alias for use_slash_commands
+    perm.use_application_commands = False
+    # This bot has no way to request to speak in a stage channel
+    # TODO: change if this feature is ever needed
+    perm.request_to_speak = False
+    # This bot has no need to manage guild events
+    perm.manage_events = False
+    # This bot has no need to manage threads
+    perm.manage_threads = False
+    # This bot has no need to create public threads
+    perm.create_public_threads = False
+    # This bot has no need to create private threads
+    perm.create_private_threads = False
+    # This bot has no need to use stickers from other guilds
+    perm.external_stickers = False
+    # This is an alias for external_stickers
+    perm.use_external_stickers = False
+    # This bot should respond in-thread if it is used in-thread
+    perm.send_messages_in_threads = True
+    # This bot has no need to lauch activities of any kind
+    perm.start_embedded_activities = False
+    # This bot has no need to moderate members, just read them for /settings
+    perm.moderate_members = False
+
+    url = discord.utils.oauth_url(
+        client_id=ctx.bot.application_id,
+        permissions=perm
+    )
+    await ctx.respond(
+        ephemeral=True,
+        content=url \
+            + "\nPlease also enable Server Members Intent and Message " \
+            + "Content Intent in Privelaged Gateway Intents under Bot in " \
+            + "your Discord Developer Portal.")
     return True
