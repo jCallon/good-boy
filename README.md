@@ -26,6 +26,7 @@ But, here's a high level overview of the commands I currently support.
 | `/settings lock start`                | Make me unresponsive to non-admin messages.          |
 | `/settings lock stop`                 | Make me responsive to non-admin messages.            |
 | `/settings kill`                      | Disconnect me from Discord.                          |
+| `/settings get_invite_link`           | Get an invite link for me to join a difffernt guild. |
 
 ## Backlog
 | Command                       | Description                                         |
