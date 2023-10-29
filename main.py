@@ -126,11 +126,6 @@ async def on_application_command_error(
     # Elevate error so bot-owner sees it in-console
     raise error
 
-@discord_bot.event
-async def on_application_command_error(
-    ctx: discord.ApplicationContext,
-    error: discord.DiscordException
-):
 
 
 #==============================================================================#
