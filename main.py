@@ -22,6 +22,9 @@ from discord_slash_commands import rng
 from discord_slash_commands import voice
 from discord_slash_commands import tts
 
+# Import SQL helper for persistent, mmulti-thread safe bot memory
+from discord_slash_commands.helpers import sql
+
 #==============================================================================#
 # Define underlying structure                                                  #
 #==============================================================================#
@@ -39,13 +42,60 @@ discord_bot.add_application_command(tts.tts_slash_command_group)
 async def on_ready():
     """Handles on_ready event for discord_bot.
 
-    Prints a string in-console to let the bot owner know when the bot has
-    connected to Discord.
+    Initializes connections to necessary internal databases and prints a string
+    in-console to let the bot owner know when the bot has connected to Discord.
     """
+    # Create or get connection to existing TTS information database
+    # TODO: Do connections need to be closed before the application closes?
+    sql.add_conection(
+        table_name="tts_info",
+        column_name_list=[
+            "guild_id",
+            "user_id",
+            "spoken_name",
+            "language"
+        ]
+    )
+
+    # TODO: uncomment once feature is enabled
+    # Create or get connection to existing member permissions database
+    #sql.add_conection(
+    #    table_name="permissions",
+    #    column_name_list=[
+    #        "guild_id",
+    #        "user_id",
+    #        "is_admin",
+    #        "is_blacklisted"
+    #    ]
+    #)
+
+    # TODO: uncomment once feature is enabled
+    # Create or get connection to existing polls database
+    #sql.add_connection(
+    #    table_name="polls",
+    #    column_name_list=[
+    #        "message_id",
+    #        "expiration"
+    #    ]
+    #)
+
+    # TODO: uncomment once feature is enabled
+    # Create or get connection to existing reminders database
+    #sql.add_connection(
+    #    table_name="reminders",
+    #    column_name_list=[
+    #        "author_user_id",
+    #        "channel id",
+    #        "recurrance_type",
+    #        "start",
+    #        "end", 
+    #        "content"
+    #    ]
+    #)
+
     # Print string in console to let bot owner know bot is connected to Discord
+    # and ready to run commands
     print(f"{discord_bot.user} is ready and online!")
-
-
 
 @discord_bot.event
 async def on_application_command_error(
@@ -76,6 +126,11 @@ async def on_application_command_error(
     # Elevate error so bot-owner sees it in-console
     raise error
 
+@discord_bot.event
+async def on_application_command_error(
+    ctx: discord.ApplicationContext,
+    error: discord.DiscordException
+):
 
 
 #==============================================================================#
