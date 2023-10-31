@@ -22,8 +22,8 @@ from discord_slash_commands import rng
 from discord_slash_commands import voice
 from discord_slash_commands import tts
 
-# Import SQL helper for persistent, mmulti-thread safe bot memory
-from discord_slash_commands.helpers import sql
+# Import TODO
+import discord_slash_commands.helpers.sql_lite as sql_lite
 
 #==============================================================================#
 # Define underlying structure                                                  #
@@ -45,51 +45,57 @@ async def on_ready():
     Initializes connections to necessary internal databases and prints a string
     in-console to let the bot owner know when the bot has connected to Discord.
     """
+    connected_guild_id_list = []
+    for guild in discord_bot.connected_guilds:
+        connected_guild_id_list.append(guild.id)
+
     # Create or get connection to existing TTS information database
     # TODO: Do connections need to be closed before the application closes?
-    sql.add_conection(
-        table_name="tts_info",
-        column_name_list=[
-            "guild_id",
-            "user_id",
-            "spoken_name",
-            "language"
+    sql_lite.add_conection(
+        file_name="tts_info",
+        table_name_list=connected_guild_id_list,
+        column_list=[
+            "user_id INTEGER NOT NULL PRIMARY KEY",
+            "spoken_name TEXT NOT NULL",
+            "language TEXT NOT NULL"
         ]
     )
 
     # TODO: uncomment once feature is enabled
     # Create or get connection to existing member permissions database
-    #sql.add_conection(
-    #    table_name="permissions",
-    #    column_name_list=[
-    #        "guild_id",
-    #        "user_id",
-    #        "is_admin",
-    #        "is_blacklisted"
+    #sql_lite.add_conection(
+    #    file_name="permissions",
+    #    table_name_list=connected_guild_id_list,
+    #    column_list=[
+    #        "user_id INTEGER NOT NULL PRIMARY KEY",
+    #        "is_admin INTEGER NOT NULL",
+    #        "is_blacklisted INTEGER NOT NULL"
     #    ]
     #)
 
     # TODO: uncomment once feature is enabled
     # Create or get connection to existing polls database
-    #sql.add_connection(
-    #    table_name="polls",
-    #    column_name_list=[
-    #        "message_id",
-    #        "expiration"
+    #sql_lite.add_connection(
+    #    file_name="polls",
+    #    table_name_list=["outstanding_polls"],
+    #    column_list=[
+    #        "message_id INTEGER NOT NULL PRIMARY KEY",
+    #        "expiration INTEGER NOT NULL"
     #    ]
     #)
 
     # TODO: uncomment once feature is enabled
     # Create or get connection to existing reminders database
-    #sql.add_connection(
-    #    table_name="reminders",
+    #sql_lite.add_connection(
+    #    file_name="reminders",
+    #    table_name_list=["outstanding_reminders"],
     #    column_name_list=[
-    #        "author_user_id",
-    #        "channel id",
-    #        "recurrance_type",
-    #        "start",
-    #        "end", 
-    #        "content"
+    #        "author_user_id INTEGER NOT NULL",
+    #        "channel_id INTEGER NOT NULL",
+    #        "recurrance_type TEXT NOT NULL",
+    #        "start INTEGER NOT NULL",
+    #        "end INTEGER NOT NULL", 
+    #        "content TEXT"
     #    ]
     #)
 
