@@ -7,6 +7,12 @@ TODO.
 # Import libraries                                                             #
 #==============================================================================#
 
+# Import Callable type
+from typing import Callable
+
+# Import Discord Python API
+import discord
+
 #==============================================================================#
 # Define underlying structure                                                  #
 #==============================================================================#
@@ -14,9 +20,9 @@ TODO.
 # Create an ad-hoc way to queue audio one-after-another
 # TODO: make real audio queue, this pains me
 
-global next_voice_client: discord.VoiceClient
-global next_audio_source: discord.AudioSource
-global next_after_function: Callable
+global next_voice_client
+global next_audio_source
+global next_after_function
 next_voice_client = None
 next_audio_source = None
 next_after_function = None

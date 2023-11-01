@@ -46,12 +46,14 @@ async def on_ready():
     in-console to let the bot owner know when the bot has connected to Discord.
     """
     connected_guild_id_list = []
-    for guild in discord_bot.connected_guilds:
-        connected_guild_id_list.append(guild.id)
+    for guild in discord_bot.guilds:
+        connected_guild_id_list.append(f"guild_{guild.id}")
 
     # Create or get connection to existing TTS information database
     # TODO: Do connections need to be closed before the application closes?
-    sql_lite.add_conection(
+    # TODO: Make new tables when connecting to a new guild
+    # TODO: Make spoken name unique?
+    sql_lite.add_connection(
         file_name="tts_info",
         table_name_list=connected_guild_id_list,
         column_list=[
@@ -63,7 +65,7 @@ async def on_ready():
 
     # TODO: uncomment once feature is enabled
     # Create or get connection to existing member permissions database
-    #sql_lite.add_conection(
+    #sql_lite.add_connection(
     #    file_name="permissions",
     #    table_name_list=connected_guild_id_list,
     #    column_list=[

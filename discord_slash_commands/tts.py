@@ -74,10 +74,27 @@ class TTSUserPreference():
             self: This TTSUserPreference
             ctx: TODO
         """
-        self.guild_id = ctx.guild.id if ctx.guild != None else 0
+        # Fill self.guild_id
+        # Sometimes a command will be sent from DMs, so it will not have a guild
+        self.guild_id = ctx.guild.id if ctx.guild != None else None
+
+        # Fill self.user_id
         self.user_id = ctx.author.id
-        self.spoken_name = ctx.author.nick if ctx.author.nick != None else \
-            ctx.author.name
+
+        # Fill self.spoken_name
+        # Sometimes a command will be sent from DMs, so it will be from a
+        # 'User', not a 'Member'. Fields will not always be populated either.
+        if isinstance(ctx.author, discord.Member) and \
+            isinstance(ctx.author.nick, str):
+            self.spoken_name = ctx.author.nick
+        elif isinstance(ctx.author.display_name, str):
+            self.spoken_name = ctx.author.display_name
+        elif isinstance(ctx.author.name, str):
+            self.spoken_name = ctx.author.name
+        else:
+            self.spoken_name = f"{self.user_id}"
+
+        # Fill self.language
         self.language = "en"
 
     def save(self) -> bool:
@@ -97,21 +114,49 @@ class TTSUserPreference():
             found or is faulty.
         """
         # Execute SQL query
-        return [] != sql_lite.run(
+        # TODO: Why does this return
+        #       sqlite3.OperationalError: near "?": syntax error
+        #       I want to use this instead of the below
+        #return [] != sql_lite.run(
+        #    file_name = "tts_info",
+        #    query = "INSERT INTO ? VALUES (?,?,?) " \
+        #        + "ON CONFLICT(user_id) " \
+        #        + "DO UPDATE SET spoken_name=?,language=?",
+        #    query_parameters = (
+        #        f"guild_{self.guild_id}",
+        #        self.user_id,
+        #        self.spoken_name,
+        #        self.language,
+        #        self.spoken_name,
+        #        self.language
+        #    ),
+        #    commit = True
+        #)
+
+        # Check safety of parameters
+        if not (
+            isinstance(self.guild_id, int) and \
+            isinstance(self.user_id, int) and \
+            isinstance(self.spoken_name, str) and \
+            isinstance(self.language, str)
+        ):
+            return False
+
+        # Execute SQL query
+        return sql_lite.run(
             file_name = "tts_info",
-            query = "INSERT INTO ? VALUES (?, ?, ?) " \
-                + "ON CONFLICT(user_id) " \
+            query = f"INSERT INTO guild_{self.guild_id} VALUES "\
+                + f"({self.user_id},?,?) ON CONFLICT(user_id) " \
                 + "DO UPDATE SET spoken_name=?,language=?",
             query_parameters = (
-                self.guild_id,
-                self.user_id,
                 self.spoken_name,
                 self.language,
                 self.spoken_name,
                 self.language
             ),
             commit = True
-        )
+        ).success == True
+        
 
     def read(self, guild_id: int, user_id: int) -> bool:
         """Copy TTSUserPreference matching guild_id and user_id from database.
@@ -134,26 +179,41 @@ class TTSUserPreference():
             found or is faulty. Or, this user simply does not have preferences
             in this guild.
         """
+        # TODO: Why does this return
+        #       sqlite3.OperationalError: near "?": syntax error
+        #       I want to use this instead of the below
+        #result = sql_lite.run(
+        #    file_name = "tts_info",
+        #    query = "SELECT user_id,spoken_name,language " \
+        #        + "FROM ? WHERE user_id=?",
+        #    query_parameters = (
+        #        f"guild_{self.guild_id}",
+        #        self.user_id
+        #    ),
+        #    commit = False
+        #)
+
+        # Check safety of parameters
+        if not (isinstance(guild_id, int) and isinstance(user_id, int)):
+            return False
+
         # Execute SQL query
-        result = sql_lite.run(
+        status = sql_lite.run(
             file_name = "tts_info",
-            query = "SELECT (user_id, spoken_name, language) " \
-                + "FROM ? WHERE user_id=?",
-            query_parameters = (
-                self.guild_id,
-                self.user_id
-            ),
+            query = "SELECT user_id,spoken_name,language FROM " \
+                + f"guild_{guild_id} WHERE user_id={user_id}",
+            query_parameters = (),
             commit = False
         )
 
         # If there was no match, return failure and don't change this
         # TTSUserPreference's members
-        if result == []:
+        if status.success == False:
             return False
         
         # There was a match, overwrite this TTSUserPreference's members with
         # values from the database
-        result = result[0]
+        result = status.result[0]
         self.guild_id = guild_id
         self.user_id = user_id
         self.spoken_name = result[1]
@@ -429,12 +489,12 @@ async def tts_play(
 
     # Get audio sources
     name_audio_source = tts_file_info_list.get_audio_source(
-        text_to_say=spoken_name,
-        language_to_speak=language
+        text_to_say=tts_user_preference.spoken_name,
+        language_to_speak=tts_user_preference.language
     )
     text_audio_source = tts_file_info_list.get_audio_source(
         text_to_say=text_to_say,
-        language_to_speak=language
+        language_to_speak=tts_user_preference.language
     )
 
     # Play tts_user_preference.spoken_name then text_to_say
@@ -499,10 +559,11 @@ async def tts_spoken_name(
     tts_user_preference.read(ctx.guild.id, ctx.author.id)
     tts_user_preference.spoken_name = new_spoken_name
     if tts_user_preference.save() is False:
+        # TODO: fill in bot owner
         await ctx.respond(
             ephemeral=True,
             content=f"Could not save your new preference for unknown reasons."
-                + f"\nPlease tell the bot owner, {} " \
+                + f"\nPlease tell the bot owner, " \
                 + "to look into the issue."
                 + "\nIn the meantime, you can change your nick in the guild "
                 + "you're using this command for to get the same effect."
@@ -562,10 +623,11 @@ async def tts_language(
     tts_user_preference.read(ctx.guild.id, ctx.author.id)
     tts_user_preference.language = new_language
     if tts_user_preference.save() is False:
+        # TODO: fill in bot owner
         await ctx.respond(
             ephemeral=True,
             content=f"Could not save your new preference for unknown reasons."
-                + f"\nPlease tell the bot owner, {} " \
+                + f"\nPlease tell the bot owner, " \
                 + "to look into the issue."
                 + "\nIn the meantime, you can change your nick in the guild "
                 + "you're using this command for to get the same effect."

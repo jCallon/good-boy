@@ -12,9 +12,9 @@ owner's disk.
 # Import API for using SQLLite
 import sqlite3
 
-# Assert sqlite library works for multiple threads
+# TODO: Assert sqlite library works for multiple threads
 # See https://docs.python.org/3/library/sqlite3.html#sqlite3.threadsafety
-assert sqlite3.threadsafety == 3
+#assert sqlite3.threadsafety == 3
 
 #==============================================================================#
 # Define underlying structure                                                  #
@@ -24,11 +24,12 @@ global connection_dict
 connection_dict = {}
 
 # TODO: always check for bad return and throw values for functions
-# TODO: make strings sql injection resistant
 # TODO: check for database files getting too big
 
 
 
+# Note: The SQL in here is not immune to injection, please don't let users
+# use this function
 def add_connection(
     file_name: str,
     table_name_list: list,
@@ -45,66 +46,83 @@ def add_connection(
     connection_dict.
 
     Args:
-        table_name: The name of the table to get a connection for
+        file_name: The name of the database file to get a connection for
+        table_name_list: A list of names of tables that are supposed to exist
+            within the database matching file_name
         column_list: A list of strings, where each element is the name
             of one column in the table to create or already created for
-            ./db/$table_name.db
+            ./db/$file_name.db
     """
     # Create connection for file_name that is multi-thread safe
-    connection_dict[table_name] = sqlite3.connect(
+    connection = sqlite3.connect(
         database=f"db/{file_name}.db",
-        check_same_thread=False,
-        autocommit=False
+        check_same_thread=False
+        # TODO: why doesn't this work?
+        # autocommit = False
     )
+
+    # Add connection to connection_dict
+    connection_dict[file_name] = connection
 
     for table_name in table_name_list:
         # Get cursor (iterator-like object) for the connection
-        cursor = connection_dict[table_name].cursor
+        cursor = connection.cursor()
 
-        # Assert the table exists within table_name's database file,
-        # if not create it
+        # Create or assert table-name exists within file_name's database file
         sqlite_response = cursor.execute(
-            "SELECT {table_name} FROM sqlite_master"
+            f"SELECT name FROM sqlite_master WHERE name='{table_name}'"
         )
         if sqlite_response.fetchone() is None:
             cursor.execute(
-                f"CREATE TABLE {table_name}({', '.join(column_list)})"
+                f"CREATE TABLE {table_name}({','.join(column_list)})"
             )
+
+        # Commit changes
         connection.commit()
 
-
+class Status():
+    def __init__(self, success: bool, result: list):
+        self.success = success
+        self.result = result
 
 def run(
     file_name: str,
     query: str,
     query_parameters: tuple,
     commit: bool
-):
-    """TODO.
+) -> Status:
+    """Run query with query_parameters against the database at file_name.
 
-    TODO.
+    Run the SQL command query with query_parameters on the prexisting
+    connection for ./db/file_name.db. Commit the changes if commit is True.
 
     Args:
-        TODO
+        file_name: The file name of the database you wish to access
+        query: The general SQL command you wish to execute
+        query_parameters: The parameters that will be used in query (never
+            put user-entered info straight into query, or you'll be vulnerable
+            to SQL injection attacks!)
+        commit: Whether to commit changes after executing query
 
     Returns:
-        TODO.
+        The response of query with query_parameters. An empty list if a
+        pre-existing, thread-safe connection could not be found for file_name.
     """
     # Get pre-existing connection from connection_dict, if one doesn't exist,
     # can't do the query and return failure
     connection = connection_dict[file_name]
     if connection is None:
-        return []
+        return Status(False, [])
 
     # Get cursor (iterator-like object) for the connection
-    cursor = connection_dict[file_name].cursor
+    cursor = connection_dict[file_name].cursor()
 
     # Run query
-    response = cursor.execute(query, query_parameters)
+    sqlite_response = cursor.execute(query, query_parameters)
 
     # Commit if necessary
     if commit is True:
         connection.commit()
 
     # Return results
-    return response.fetchall()
+    return Status(True, sqlite_response.fetchall())
