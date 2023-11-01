@@ -35,7 +35,7 @@ import discord_slash_commands.helpers.application_context_checks as ctx_check
 import discord_slash_commands.helpers.audio_queue as audio_queue
 
 # Import TODO
-import discord_slash_commands.helpers.sql_lite as sql_lite
+import discord_slash_commands.helpers.sqlite as sqlite
 
 #==============================================================================#
 # Define underlying structure                                                  #
@@ -117,7 +117,7 @@ class TTSUserPreference():
         # TODO: Why does this return
         #       sqlite3.OperationalError: near "?": syntax error
         #       I want to use this instead of the below
-        #return [] != sql_lite.run(
+        #return [] != sqlite.run(
         #    file_name = "tts_info",
         #    query = "INSERT INTO ? VALUES (?,?,?) " \
         #        + "ON CONFLICT(user_id) " \
@@ -143,7 +143,7 @@ class TTSUserPreference():
             return False
 
         # Execute SQL query
-        return sql_lite.run(
+        return sqlite.run(
             file_name = "tts_info",
             query = f"INSERT INTO guild_{self.guild_id} VALUES "\
                 + f"({self.user_id},?,?) ON CONFLICT(user_id) " \
@@ -182,7 +182,7 @@ class TTSUserPreference():
         # TODO: Why does this return
         #       sqlite3.OperationalError: near "?": syntax error
         #       I want to use this instead of the below
-        #result = sql_lite.run(
+        #result = sqlite.run(
         #    file_name = "tts_info",
         #    query = "SELECT user_id,spoken_name,language " \
         #        + "FROM ? WHERE user_id=?",
@@ -198,7 +198,7 @@ class TTSUserPreference():
             return False
 
         # Execute SQL query
-        status = sql_lite.run(
+        status = sqlite.run(
             file_name = "tts_info",
             query = "SELECT user_id,spoken_name,language FROM " \
                 + f"guild_{guild_id} WHERE user_id={user_id}",

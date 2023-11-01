@@ -23,7 +23,7 @@ from discord_slash_commands import voice
 from discord_slash_commands import tts
 
 # Import TODO
-import discord_slash_commands.helpers.sql_lite as sql_lite
+import discord_slash_commands.helpers.sqlite as sqlite
 
 #==============================================================================#
 # Define underlying structure                                                  #
@@ -53,7 +53,7 @@ async def on_ready():
     # TODO: Do connections need to be closed before the application closes?
     # TODO: Make new tables when connecting to a new guild
     # TODO: Make spoken name unique?
-    sql_lite.add_connection(
+    sqlite.add_connection(
         file_name="tts_info",
         table_name_list=connected_guild_id_list,
         column_list=[
@@ -65,7 +65,7 @@ async def on_ready():
 
     # TODO: uncomment once feature is enabled
     # Create or get connection to existing member permissions database
-    #sql_lite.add_connection(
+    #sqlite.add_connection(
     #    file_name="permissions",
     #    table_name_list=connected_guild_id_list,
     #    column_list=[
@@ -77,7 +77,7 @@ async def on_ready():
 
     # TODO: uncomment once feature is enabled
     # Create or get connection to existing polls database
-    #sql_lite.add_connection(
+    #sqlite.add_connection(
     #    file_name="polls",
     #    table_name_list=["outstanding_polls"],
     #    column_list=[
@@ -88,7 +88,7 @@ async def on_ready():
 
     # TODO: uncomment once feature is enabled
     # Create or get connection to existing reminders database
-    #sql_lite.add_connection(
+    #sqlite.add_connection(
     #    file_name="reminders",
     #    table_name_list=["outstanding_reminders"],
     #    column_name_list=[
