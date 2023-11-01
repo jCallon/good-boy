@@ -31,10 +31,10 @@ import discord
 # Import functions for asserting bot state
 import discord_slash_commands.helpers.application_context_checks as ctx_check
 
-# Import TODO
+# Import helper for queueing audio in voice chat
 import discord_slash_commands.helpers.audio_queue as audio_queue
 
-# Import TODO
+# Import helper for interacting with internal database
 import discord_slash_commands.helpers.sqlite as sqlite
 
 #==============================================================================#
@@ -44,35 +44,32 @@ import discord_slash_commands.helpers.sqlite as sqlite
 class TTSUserPreference():
     """Define an instance of info held on a user for TTS.
 
-    Define a row in ./db/tts_info.db that stores TTS preferences per member,
-    per guild.
+    Define an instance of information held on a user for TTS. Information is
+    held per-guild, where each guild has its own table, guild_$guild_id.
 
     Attributes:
-        guild_id: The unique identifier for the guild the user is setting their
-            preferences for. Lets users have per-guild settings. For example,
-            1054409312894783901.
-        user_id: The unique identifier for the user who has non-default TTS
-            preferences. For example, 465014452489129824.
+        guild_id: The unique identifier of the guild the user has or is setting
+            non-default TTS preferences for. For example, 1054409312894783901.
+        user_id: The unique identifier of the user who has or is setting
+            non-default TTS preferences. For example, 465014452489129824.
         spoken_name: The name the user prefers is spoken when TTS is announcing
-            the author of the message about to be spone. Useful for names with
+            the author of the message about to be spoken. Useful for names with
             emojis or that are pronounced odd. For example, if you name is
             Choco<3, you might want the bot to pronounce your name as Chalko
-            Heart, instead of Chohco Less Than Three.
+            Heart, instead of Chocoh Less Than Three.
         language: The IETF code of the language the user prefers TTS to speak in
             for them. For example, "en" = English, and "ja" = Japanese. See
             https://gtts.readthedocs.io/en/latest/module.html for more info.
     """
-    def __init__(
-        self,
-        ctx: discord.ApplicationContext
-    ):
+    def __init__(self, ctx: discord.ApplicationContext):
         """Initialize this TTSUserPreference.
 
-        TODO.
+        Set the members of this TTSUserPreference based on members from ctx.
 
         Args:
             self: This TTSUserPreference
-            ctx: TODO
+            ctx: The context the a TTS command was called from, must include
+                a command author
         """
         # Fill self.guild_id
         # Sometimes a command will be sent from DMs, so it will not have a guild
@@ -83,7 +80,8 @@ class TTSUserPreference():
 
         # Fill self.spoken_name
         # Sometimes a command will be sent from DMs, so it will be from a
-        # 'User', not a 'Member'. Fields will not always be populated either.
+        # discord.User, instead of a discord.Member. User and Member fields
+        # may not always be populated either.
         if isinstance(ctx.author, discord.Member) and \
             isinstance(ctx.author.nick, str):
             self.spoken_name = ctx.author.nick
@@ -95,6 +93,7 @@ class TTSUserPreference():
             self.spoken_name = f"{self.user_id}"
 
         # Fill self.language
+        # Just use a default value of English
         self.language = "en"
 
     def save(self) -> bool:
@@ -161,15 +160,14 @@ class TTSUserPreference():
     def read(self, guild_id: int, user_id: int) -> bool:
         """Copy TTSUserPreference matching guild_id and user_id from database.
 
-        Try to find a TTSUserPreference matching guild_id and user_id in the
-        database. Each guild has its own table named after its guild id.
-        If it exists, overwrite the members of this TTSUserPreference with its
-        data entries.
+        Try to find the row in the table guild_$guild_id matching user_id for
+        the TTS user information database. If it exists, overwrite the members
+        of this TTSUserPreference with its data entries.
 
         Args:
             self: This TTSUserPreference
             guild_id: Users may have preferences that differ per guild. This
-                parameter lets you specifies the guild you are checking this
+                parameter lets you specify the guild you are checking this
                 user's preferences for.
             user_id: The ID of the user you want to know the preferences of.
 
