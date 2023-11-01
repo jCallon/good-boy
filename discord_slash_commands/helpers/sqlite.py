@@ -1,7 +1,7 @@
 """Functions for easily accessing bot internal databases.
 
 This file defines functions for easily utilizing the sqlite3 Python library to
-use SQL Lite databases. These databases are serverless and saved on the bot
+use SQLite databases. These databases are serverless and saved on the bot
 owner's disk.
 """
 
