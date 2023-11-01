@@ -9,7 +9,7 @@ owner's disk.
 # Import libraries                                                             #
 #==============================================================================#
 
-# Import API for using SQLLite
+# Import API for using SQLite
 import sqlite3
 
 # TODO: Assert sqlite library works for multiple threads
