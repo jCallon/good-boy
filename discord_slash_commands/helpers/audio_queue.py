@@ -70,6 +70,6 @@ def play_next_source(error) -> None:
     Args:
         error: Any errors that happened during the previous VoiceClient.play()
     """
-    if error != None:
+    if error is not None:
         print(error)
     next_voice_client.play(next_audio_source, after=next_after_function)

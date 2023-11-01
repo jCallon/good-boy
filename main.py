@@ -23,7 +23,7 @@ from discord_slash_commands import voice
 from discord_slash_commands import tts
 
 # Import helper for interacting with internal database
-import discord_slash_commands.helpers.sqlite as sqlite
+from discord_slash_commands.helpers import sqlite
 
 #==============================================================================#
 # Define underlying structure                                                  #
@@ -96,7 +96,7 @@ async def on_ready():
     #        "channel_id INTEGER NOT NULL",
     #        "recurrance_type TEXT NOT NULL",
     #        "start INTEGER NOT NULL",
-    #        "end INTEGER NOT NULL", 
+    #        "end INTEGER NOT NULL",
     #        "content TEXT"
     #    ]
     #)

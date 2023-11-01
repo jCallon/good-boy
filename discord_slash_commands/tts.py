@@ -19,9 +19,6 @@ import hashlib
 # Import API for handling ascii strings as binary lists
 import binascii
 
-# Import Callable type
-from typing import Callable
-
 # Import API for using Google to turn text into speech
 import gtts
 
@@ -32,10 +29,10 @@ import discord
 import discord_slash_commands.helpers.application_context_checks as ctx_check
 
 # Import helper for queueing audio in voice chat
-import discord_slash_commands.helpers.audio_queue as audio_queue
+from discord_slash_commands.helpers import audio_queue
 
 # Import helper for interacting with internal database
-import discord_slash_commands.helpers.sqlite as sqlite
+from discord_slash_commands.helpers import sqlite
 
 #==============================================================================#
 # Define underlying structure                                                  #
@@ -73,7 +70,7 @@ class TTSUserPreference():
         """
         # Fill self.guild_id
         # Sometimes a command will be sent from DMs, so it will not have a guild
-        self.guild_id = ctx.guild.id if ctx.guild != None else None
+        self.guild_id = ctx.guild.id if ctx.guild is not None else None
 
         # Fill self.user_id
         self.user_id = ctx.author.id
@@ -154,8 +151,8 @@ class TTSUserPreference():
                 self.language
             ),
             commit = True
-        ).success == True
-        
+        ).success is True
+
 
     def read(self, guild_id: int, user_id: int) -> bool:
         """Copy TTSUserPreference matching guild_id and user_id from database.
@@ -206,9 +203,9 @@ class TTSUserPreference():
 
         # If there was no match, return failure and don't change this
         # TTSUserPreference's members
-        if status.success == False:
+        if status.success is False:
             return False
-        
+
         # There was a match, overwrite this TTSUserPreference's members with
         # values from the database
         result = status.result[0]
@@ -364,8 +361,8 @@ class TTSFileInfoList():
         # See if there is already an audio file generated for this text_to_say
         # and language_to_speak
         file_exists = False
-        for i in range(len(sorted_list_of_file_info)):
-            if file_name == sorted_list_of_file_info[i].file_name:
+        for file_info in sorted_list_of_file_info:
+            if file_name == file_info.file_name:
                 file_exists = True
                 break
 
@@ -560,8 +557,8 @@ async def tts_spoken_name(
         # TODO: fill in bot owner
         await ctx.respond(
             ephemeral=True,
-            content=f"Could not save your new preference for unknown reasons."
-                + f"\nPlease tell the bot owner, " \
+            content="Could not save your new preference for unknown reasons."
+                + "\nPlease tell the bot owner, " \
                 + "to look into the issue."
                 + "\nIn the meantime, you can change your nick in the guild "
                 + "you're using this command for to get the same effect."
@@ -624,8 +621,8 @@ async def tts_language(
         # TODO: fill in bot owner
         await ctx.respond(
             ephemeral=True,
-            content=f"Could not save your new preference for unknown reasons."
-                + f"\nPlease tell the bot owner, " \
+            content="Could not save your new preference for unknown reasons."
+                + "\nPlease tell the bot owner, " \
                 + "to look into the issue."
                 + "\nIn the meantime, you can change your nick in the guild "
                 + "you're using this command for to get the same effect."
