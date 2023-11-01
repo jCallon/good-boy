@@ -22,6 +22,9 @@ from discord_slash_commands import rng
 from discord_slash_commands import voice
 from discord_slash_commands import tts
 
+# Import helper for interacting with internal database
+from discord_slash_commands.helpers import sqlite
+
 #==============================================================================#
 # Define underlying structure                                                  #
 #==============================================================================#
@@ -39,10 +42,67 @@ discord_bot.add_application_command(tts.tts_slash_command_group)
 async def on_ready():
     """Handles on_ready event for discord_bot.
 
-    Prints a string in-console to let the bot owner know when the bot has
-    connected to Discord.
+    Initializes connections to necessary internal databases and prints a string
+    in-console to let the bot owner know when the bot has connected to Discord.
     """
+    connected_guild_id_list = []
+    for guild in discord_bot.guilds:
+        connected_guild_id_list.append(f"guild_{guild.id}")
+
+    # Create or get connection to existing TTS information database
+    # TODO: Do connections need to be closed before the application closes?
+    # TODO: Make new tables when connecting to a new guild
+    # TODO: Make spoken name unique?
+    sqlite.add_connection(
+        file_name="tts_info",
+        table_name_list=connected_guild_id_list,
+        column_list=[
+            "user_id INTEGER NOT NULL PRIMARY KEY",
+            "spoken_name TEXT NOT NULL",
+            "language TEXT NOT NULL"
+        ]
+    )
+
+    # TODO: uncomment once feature is enabled
+    # Create or get connection to existing member permissions database
+    #sqlite.add_connection(
+    #    file_name="permissions",
+    #    table_name_list=connected_guild_id_list,
+    #    column_list=[
+    #        "user_id INTEGER NOT NULL PRIMARY KEY",
+    #        "is_admin INTEGER NOT NULL",
+    #        "is_blacklisted INTEGER NOT NULL"
+    #    ]
+    #)
+
+    # TODO: uncomment once feature is enabled
+    # Create or get connection to existing polls database
+    #sqlite.add_connection(
+    #    file_name="polls",
+    #    table_name_list=["outstanding_polls"],
+    #    column_list=[
+    #        "message_id INTEGER NOT NULL PRIMARY KEY",
+    #        "expiration INTEGER NOT NULL"
+    #    ]
+    #)
+
+    # TODO: uncomment once feature is enabled
+    # Create or get connection to existing reminders database
+    #sqlite.add_connection(
+    #    file_name="reminders",
+    #    table_name_list=["outstanding_reminders"],
+    #    column_name_list=[
+    #        "author_user_id INTEGER NOT NULL",
+    #        "channel_id INTEGER NOT NULL",
+    #        "recurrance_type TEXT NOT NULL",
+    #        "start INTEGER NOT NULL",
+    #        "end INTEGER NOT NULL",
+    #        "content TEXT"
+    #    ]
+    #)
+
     # Print string in console to let bot owner know bot is connected to Discord
+    # and ready to run commands
     print(f"{discord_bot.user} is ready and online!")
 
 

@@ -19,235 +19,204 @@ import hashlib
 # Import API for handling ascii strings as binary lists
 import binascii
 
-# Import Callable type
-from typing import Callable
-
 # Import API for using Google to turn text into speech
 import gtts
 
 # Import Discord Python API
 import discord
 
-# Custom class for interfacing with JSON files
-import discord_slash_commands.helpers.json_list as json_list
-
 # Import functions for asserting bot state
 import discord_slash_commands.helpers.application_context_checks as ctx_check
+
+# Import helper for queueing audio in voice chat
+from discord_slash_commands.helpers import audio_queue
+
+# Import helper for interacting with internal database
+from discord_slash_commands.helpers import sqlite
 
 #==============================================================================#
 # Define underlying structure                                                  #
 #==============================================================================#
 
-class TTSUserPreference(json_list.JSONListItem):
+class TTSUserPreference():
     """Define an instance of info held on a user for TTS.
 
-    Define an instance of a JSONListItem that stores TTS preferences per member,
-    per guild.
+    Define an instance of information held on a user for TTS. Information is
+    held per-guild, where each guild has its own table, guild_$guild_id.
 
     Attributes:
-        guild_id: The unique identifier for the guild the user is setting their
-            preferences for. Lets users have per-guild settings. For example,
-            1054409312894783901.
-        user_id: The unique identifier for the user who has non-default TTS
-            preferences. For example, 465014452489129824.
+        guild_id: The unique identifier of the guild the user has or is setting
+            non-default TTS preferences for. For example, 1054409312894783901.
+        user_id: The unique identifier of the user who has or is setting
+            non-default TTS preferences. For example, 465014452489129824.
         spoken_name: The name the user prefers is spoken when TTS is announcing
-            the author of the message about to be spone. Useful for names with
+            the author of the message about to be spoken. Useful for names with
             emojis or that are pronounced odd. For example, if you name is
             Choco<3, you might want the bot to pronounce your name as Chalko
-            Heart, instead of Chohco Less Than Three.
+            Heart, instead of Chocoh Less Than Three.
         language: The IETF code of the language the user prefers TTS to speak in
             for them. For example, "en" = English, and "ja" = Japanese. See
             https://gtts.readthedocs.io/en/latest/module.html for more info.
     """
-    def __init__(
-        self,
-        guild_id: int = 0,
-        user_id: int = 0,
-        spoken_name: str = "",
-        language: str = ""
-    ):
+    def __init__(self, ctx: discord.ApplicationContext):
         """Initialize this TTSUserPreference.
 
-        Set the members of this TTSUserPreference to the passed in or default
-        values.
+        Set the members of this TTSUserPreference based on members from ctx.
 
         Args:
             self: This TTSUserPreference
-            guild_id: What initialize self.guild_id as
-            user_id: What initialize self.user_id as
-            spoken_name: What initialize self.spoken_name as
-            language: What initialize self.language as
+            ctx: The context the a TTS command was called from, must include
+                a command author
         """
+        # Fill self.guild_id
+        # Sometimes a command will be sent from DMs, so it will not have a guild
+        self.guild_id = ctx.guild.id if ctx.guild is not None else None
+
+        # Fill self.user_id
+        self.user_id = ctx.author.id
+
+        # Fill self.spoken_name
+        # Sometimes a command will be sent from DMs, so it will be from a
+        # discord.User, instead of a discord.Member. User and Member fields
+        # may not always be populated either.
+        if isinstance(ctx.author, discord.Member) and \
+            isinstance(ctx.author.nick, str):
+            self.spoken_name = ctx.author.nick
+        elif isinstance(ctx.author.display_name, str):
+            self.spoken_name = ctx.author.display_name
+        elif isinstance(ctx.author.name, str):
+            self.spoken_name = ctx.author.name
+        else:
+            self.spoken_name = f"{self.user_id}"
+
+        # Fill self.language
+        # Just use a default value of English
+        self.language = "en"
+
+    def save(self) -> bool:
+        """Save this TTSUserPreference instance into the database.
+
+        Insert this TTSUserPreference into the tts_info database. Each guild
+        has its own table named after its guild id. If a TTSUserPreference with
+        the same user_id already exists in the table, just update its
+        spoken_name and language to match this TTSUserPreference.
+
+        Args:
+            self: This TTSUserPreference
+
+        Returns:
+            Whether the operation was successful. It may not be, for example,
+            if the connection to the database, or the database itself, is not
+            found or is faulty.
+        """
+        # Execute SQL query
+        # TODO: Why does this return
+        #       sqlite3.OperationalError: near "?": syntax error
+        #       I want to use this instead of the below
+        #return [] != sqlite.run(
+        #    file_name = "tts_info",
+        #    query = "INSERT INTO ? VALUES (?,?,?) " \
+        #        + "ON CONFLICT(user_id) " \
+        #        + "DO UPDATE SET spoken_name=?,language=?",
+        #    query_parameters = (
+        #        f"guild_{self.guild_id}",
+        #        self.user_id,
+        #        self.spoken_name,
+        #        self.language,
+        #        self.spoken_name,
+        #        self.language
+        #    ),
+        #    commit = True
+        #)
+
+        # Check safety of parameters
+        if not (
+            isinstance(self.guild_id, int) and \
+            isinstance(self.user_id, int) and \
+            isinstance(self.spoken_name, str) and \
+            isinstance(self.language, str)
+        ):
+            return False
+
+        # Execute SQL query
+        return sqlite.run(
+            file_name = "tts_info",
+            query = f"INSERT INTO guild_{self.guild_id} VALUES "\
+                + f"({self.user_id},?,?) ON CONFLICT(user_id) " \
+                + "DO UPDATE SET spoken_name=?,language=?",
+            query_parameters = (
+                self.spoken_name,
+                self.language,
+                self.spoken_name,
+                self.language
+            ),
+            commit = True
+        ).success is True
+
+
+    def read(self, guild_id: int, user_id: int) -> bool:
+        """Copy TTSUserPreference matching guild_id and user_id from database.
+
+        Try to find the row in the table guild_$guild_id matching user_id for
+        the TTS user information database. If it exists, overwrite the members
+        of this TTSUserPreference with its data entries.
+
+        Args:
+            self: This TTSUserPreference
+            guild_id: Users may have preferences that differ per guild. This
+                parameter lets you specify the guild you are checking this
+                user's preferences for.
+            user_id: The ID of the user you want to know the preferences of.
+
+        Returns:
+            Whether the operation was successful. It may not be, for example,
+            if the connection to the database, or the database itself, is not
+            found or is faulty. Or, this user simply does not have preferences
+            in this guild.
+        """
+        # TODO: Why does this return
+        #       sqlite3.OperationalError: near "?": syntax error
+        #       I want to use this instead of the below
+        #result = sqlite.run(
+        #    file_name = "tts_info",
+        #    query = "SELECT user_id,spoken_name,language " \
+        #        + "FROM ? WHERE user_id=?",
+        #    query_parameters = (
+        #        f"guild_{self.guild_id}",
+        #        self.user_id
+        #    ),
+        #    commit = False
+        #)
+
+        # Check safety of parameters
+        if not (isinstance(guild_id, int) and isinstance(user_id, int)):
+            return False
+
+        # Execute SQL query
+        status = sqlite.run(
+            file_name = "tts_info",
+            query = "SELECT user_id,spoken_name,language FROM " \
+                + f"guild_{guild_id} WHERE user_id={user_id}",
+            query_parameters = (),
+            commit = False
+        )
+
+        # If there was no match, return failure and don't change this
+        # TTSUserPreference's members
+        if status.success is False:
+            return False
+
+        # There was a match, overwrite this TTSUserPreference's members with
+        # values from the database
+        result = status.result[0]
         self.guild_id = guild_id
         self.user_id = user_id
-        self.spoken_name = spoken_name
-        self.language = language
-
-    def equals(self, comp_tts_user_preference) -> bool:
-        """Return if comp_tts_user_preference equals this TTSUserPreference.
-
-        Return whether every member of comp_tts_user_preference is identical to
-        every member of this TTSUserPreference.
-
-        Args:
-            self: This TTSUserPreference
-            comp_tts_user_preference: The TTSUserPreference to compare against
-                this TTSUserPreference
-
-        Returns:
-            Whether comp_tts_user_preference is equal to this TTSUserPreference.
-        """
-        return (self.guild_id == comp_tts_user_preference.guild_id) and \
-        (self.user_id == comp_tts_user_preference.user_id) and \
-        (self.spoken_name == comp_tts_user_preference.spoken_name) and \
-        (self.language == comp_tts_user_preference.language)
-
-    def copy(self):
-        """Return a copy of this TTSUserPreference.
-
-        Create a new TTSUserPreference with the same members as this one and
-        return it.
-
-        Args:
-            self: This TTSUserPreference
-
-        Returns:
-            A copy of this TTSUserPreference.
-        """
-        return TTSUserPreference(
-            self.guild_id,
-            self.user_id,
-            self.spoken_name,
-            self.language
-        )
-
-    def to_dict(self) -> dict:
-        """Return this TTSUserPreference as a dictionary.
-
-        Create a new dictionary, where each key coressponds to a member of this
-        TTSUserPreference.
-
-        Args:
-            self: This TTSUserPreference
-
-        Returns:
-            A copy of this TTSUserPreference as a dictionary.
-        """
-        return {
-            "gid": self.guild_id,
-            "uid": self.user_id,
-            "name": self.spoken_name,
-            "lang": self.language
-        }
-
-    def from_dict(self, dictionary: dict) -> None:
-        """Read this TTSUserPreference from a dictionary.
-
-        Read a dictionary, following the same format as what as generated by
-        self.to_dict(), and overwrite each member with its key values.
-
-        Args:
-            self: This TTSUserPreference
-            dictionary: The dictionary to read
-        """
-        self.guild_id = dictionary["gid"]
-        self.user_id = dictionary["uid"]
-        self.spoken_name = dictionary["name"]
-        self.language = dictionary["lang"]
-
-
-
-# Define a list of information held on all users for TTS
-class TTSUserPreferenceBank(json_list.JSONList):
-    """Define a list of every instance of info held on a users for TTS.
-
-    Define a custom instance of JSONList to hold TTSListItem, with extra helper
-    functions. See json_list.py for class members and their descriptions.
-    """
-    def get_tts_user_preference(
-        self,
-        member: discord.Member
-    ) -> TTSUserPreference:
-        """Get a member's TTS preferences
-
-        Get a copy of the default, or of the TTSUserPreference matching the
-        member's guild id and user id.
-
-        Args:
-            self: This TTSUserPreference
-            member: The Discord member to find the TTSUserPreferences of
-
-        Returns:
-            The member's TTSUserPreference, if none found, default preferences.
-        """
-        # Get the latest file updates
-        self.sync()
-
-        # If the user has specified their preference,
-        # find it and return a copy (not a reference)
-        match_index = self.get_list_item_index(
-            lambda tts_user_preference, args: \
-            tts_user_preference.guild_id == args[0] and \
-            tts_user_preference.user_id == args[1],
-            [member.guild.id, member.id]
-        )
-        if match_index >= 0:
-            return self.list[match_index].copy()
-
-        # This user has not specified their preference,
-        # return default preferences
-        return TTSUserPreference(
-            member.guild.id,
-            member.id,
-            member.display_name,
-            'en'
-        )
-
-    # Add or modify user's TTS preferences
-    def add_tts_user_preference(
-        self,
-        new_tts_user_preference: TTSUserPreference
-    ) -> bool:
-        """A TTS preferences for a member.
-
-        Add new_tts_user_preference to self.list. If a TTSUserPreference already
-        exists for the member described in new_tts_user_preference.guild_id and
-        new_tts_user_preference.user_id, overwrite it, unless the rest of the
-        member are equal too, and the overwrite would so nothing.
-
-        Args:
-            self: This TTSUserPreference
-            new_tts_user_preference: The TTSUserPreference to ass to self.list
-
-        Returns:
-            Whether new_tts_user_preference was added to self.list. It will not
-            be if file IO was failed, denied, or new_tts_user_preference is a
-            duplicate of an existing self.list element.
-        """
-        # Get the latest file updates
-        self.sync()
-
-        # If the user had any previous preference, remove it,
-        # unless it matches the new preference
-        match_index = self.get_list_item_index(
-            lambda tts_user_preference, args: \
-            tts_user_preference.guild_id == args[0] and \
-            tts_user_preference.user_id == args[1],
-            [new_tts_user_preference.guild_id, new_tts_user_preference.user_id]
-        )
-        if match_index >= 0:
-            if self.list[match_index].equals(new_tts_user_preference):
-                return False
-            self.list.pop(match_index)
-
-        # Add new user preference
-        self.list.append(new_tts_user_preference)
-        self.write()
+        self.spoken_name = result[1]
+        self.language = result[2]
         return True
 
 
 
-# Define what file information we care about when saving audio files for TTS
 class TTSFileInfo():
     """Define an instance of info held on an audio file generated for TTS.
 
@@ -392,8 +361,8 @@ class TTSFileInfoList():
         # See if there is already an audio file generated for this text_to_say
         # and language_to_speak
         file_exists = False
-        for i in range(len(sorted_list_of_file_info)):
-            if file_name == sorted_list_of_file_info[i].file_name:
+        for file_info in sorted_list_of_file_info:
+            if file_name == file_info.file_name:
                 file_exists = True
                 break
 
@@ -414,13 +383,6 @@ class TTSFileInfoList():
 
 
 # Create class instances
-tts_user_preference_instance = TTSUserPreference()
-tts_user_preference_bank = TTSUserPreferenceBank(
-    file_directory = "json",
-    file_name = "tts_user_preference_bank.json",
-    list_type_instance = tts_user_preference_instance,
-    #max_file_size_in_bytes = default
-)
 tts_file_info_list = TTSFileInfoList(
     file_directory = "tts_cache",
     max_allowed_files = 100
@@ -446,56 +408,8 @@ tts_slash_command_group = discord.SlashCommandGroup(
 
 
 
-# Create an ad-hoc way to queue audio one-after-another
-# TODO: make real audio queue, this pains me
 # Set default TTS volume, ex. 2 = 200%
 TTS_DEFAULT_VOLUME = 2.0
-
-global next_voice_client
-global next_audio_source
-global next_after_function
-next_voice_client = None
-next_audio_source = None
-next_after_function = None
-
-def set_next_audio_queue_source(
-    voice_client: discord.VoiceClient,
-    audio_source: discord.AudioSource,
-    after_function: Callable
-) -> None:
-    """Set variables used on the next call of play_next_audio_queue_source.
-
-    Set the global variables that will be used as arguments, sources, etc. in
-    the next play_next_audio_queue_source call. That function, intended to be
-    used as an after function of PyCord.VoiceClient.play(), is not allowed to
-    have any parameters but error, so globals are the only option I see for now.
-
-    Args:
-        voice_client: The voice client play_next_audio_queue_source will play
-            audio on
-        audio_source: The audio source play_next_audio_queue_source will play
-        after_function: The function play_next_audio_queue_source will call
-            when it is done playing audio_source
-    """
-    global next_voice_client
-    global next_audio_source
-    global next_after_function
-    next_voice_client = voice_client
-    next_audio_source = audio_source
-    next_after_function = after_function
-
-def play_next_audio_queue_source(error) -> None:
-    """Using some globals, make a VoiceClient.play() call.
-
-    Use next_voice_client to play next_audio_source, and after that is done,
-    call next_after_function.
-
-    Args:
-        error: Any errors that happened during the previous VoiceClient.play()
-    """
-    if error != None:
-        print(error)
-    next_voice_client.play(next_audio_source, after=next_after_function)
 
 
 
@@ -547,16 +461,16 @@ async def tts_play(
 
     # Determine if the author's TTS preferences are still valid
     # TODO: don't hard-code tts name length limit
-    tts_user_preference = tts_user_preference_bank.get_tts_user_preference(
-        ctx.author
-    )
+    tts_user_preference = TTSUserPreference(ctx)
+    tts_user_preference.read(ctx.guild.id, ctx.author.id)
     if len(tts_user_preference.spoken_name) > 20:
         err_msg += "\nYour current preferred spoken name, " \
-            + f"{tts_user_preference.spoken_name}, exceeds the max of 20 " \
-            + "characters. Please change it."
+            + "{tts_user_preference.spoken_name}, must be <=20 characters." \
+            + "\nPlease change it via `/tts spoken_name`."
     if tts_user_preference.language not in gtts.lang.tts_langs():
-        err_msg += f"\nYour TTS language, {tts_user_preference.language}, " \
-            + "is not supported anymore. Please change it."
+        err_msg += f"\nYour TTS language, {tts_user_preference.language}, is " \
+            + "not supported anymore." \
+            + "\nPlease change it via `/tts language`."
 
     # If the bot state wasn't valid,
     # give the author verbose error messages to help them
@@ -579,14 +493,14 @@ async def tts_play(
     )
 
     # Play tts_user_preference.spoken_name then text_to_say
-    set_next_audio_queue_source(
+    audio_queue.set_next_source(
         voice_client=ctx.bot.voice_clients[0],
         audio_source=text_audio_source,
         after_function=None
     )
     ctx.bot.voice_clients[0].play(
         source=name_audio_source,
-        after=play_next_audio_queue_source
+        after=audio_queue.play_next_source
     )
 
     await ctx.respond(
@@ -636,22 +550,23 @@ async def tts_spoken_name(
 
     # If we got here, the arguments are valid and safe to act upon
     # Update tts_user_preference_bank
-    tts_user_preference = tts_user_preference_bank.get_tts_user_preference(
-        ctx.author
-    )
+    tts_user_preference = TTSUserPreference(ctx)
+    tts_user_preference.read(ctx.guild.id, ctx.author.id)
     tts_user_preference.spoken_name = new_spoken_name
-    if tts_user_preference_bank.add_tts_user_preference(tts_user_preference) \
-        is False:
-        # TODO: there should be other reasons this can fail, and they should
-        #       have proper responses for each scenario
+    if tts_user_preference.save() is False:
+        # TODO: fill in bot owner
         await ctx.respond(
             ephemeral=True,
-            content=f"Your preferred name for TTS is already {new_spoken_name}."
+            content="Could not save your new preference for unknown reasons."
+                + "\nPlease tell the bot owner, " \
+                + "to look into the issue."
+                + "\nIn the meantime, you can change your nick in the guild "
+                + "you're using this command for to get the same effect."
         )
         return False
     await ctx.respond(
         ephemeral=False,
-        content=f"Changed your preferred name for TTS to {new_spoken_name}."
+        content=f"Set your preferred name for TTS to {new_spoken_name}."
     )
     return True
 
@@ -699,21 +614,22 @@ async def tts_language(
 
     # If we got here, the arguments are valid and safe to act upon
     # Update tts_user_preference_bank
-    tts_user_preference = tts_user_preference_bank.get_tts_user_preference(
-        ctx.author
-    )
+    tts_user_preference = TTSUserPreference(ctx)
+    tts_user_preference.read(ctx.guild.id, ctx.author.id)
     tts_user_preference.language = new_language
-    if tts_user_preference_bank.add_tts_user_preference(tts_user_preference) \
-        is False:
-        # TODO: there should be other reasons this can fail, and they should
-        #       have proper responses for each scenario
+    if tts_user_preference.save() is False:
+        # TODO: fill in bot owner
         await ctx.respond(
-            emphemeral=True,
-            content="Your language for TTS is already {new_language}."
+            ephemeral=True,
+            content="Could not save your new preference for unknown reasons."
+                + "\nPlease tell the bot owner, " \
+                + "to look into the issue."
+                + "\nIn the meantime, you can change your nick in the guild "
+                + "you're using this command for to get the same effect."
         )
         return False
     await ctx.respond(
         ephemeral=True,
-        content=f"Your language for TTS has been changed to {new_language}."
+        content=f"Set your language for TTS to {new_language}."
     )
     return True
