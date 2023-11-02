@@ -39,6 +39,7 @@ def get_bot_owner_discord_user_id() -> int:
 
 
 
+# TODO: can happlity remove users with default permissions, same for tts and other tables? maybe have sperate thread to clean them or do it on an event?
 class UserPermission():
     """TODO.
 

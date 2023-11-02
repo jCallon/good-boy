@@ -21,7 +21,7 @@ from dotenv import load_dotenv
 from discord_slash_commands import rng
 from discord_slash_commands import voice
 from discord_slash_commands import tts
-from discord_slash_commands import settings
+from discord_slash_commands import permissions
 
 # Import helper for interacting with internal database
 from discord_slash_commands.helpers import sqlite
@@ -46,7 +46,7 @@ discord_bot = discord.Bot(intents=discord.Intents.default())
 discord_bot.add_application_command(rng.rng_slash_command_group)
 discord_bot.add_application_command(voice.voice_slash_command_group)
 discord_bot.add_application_command(tts.tts_slash_command_group)
-discord_bot.add_application_command(settings.settings_slash_command_group)
+discord_bot.add_application_command(permissions.permissions_slash_command_group)
 
 
 
