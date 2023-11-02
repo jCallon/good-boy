@@ -39,6 +39,13 @@ def get_bot_owner_discord_user_id() -> int:
 
 
 
+# Define a string you can paste if there was an error with sqlite.run
+sql_error_paste_str = "Could not complete action for unknown reasons." \
++ f"\nPlease ask the bot owner, <@{get_bot_owner_discord_user_id()}>, " \
++ "to look into the issue and give them details on what happened." \
+
+
+
 # TODO: can happlity remove users with default permissions, same for tts and other tables? maybe have sperate thread to clean them or do it on an event?
 class UserPermission():
     """TODO.
@@ -72,7 +79,7 @@ class UserPermission():
         # Fill self.user_id
         if isinstance(ctx, discord.ApplicationContext):
             self.user_id = ctx.author.id
-        else
+        else:
             self.user_id = 0
 
         # Fill self.is_blacklisted
@@ -83,8 +90,10 @@ class UserPermission():
         # Just use default value of False
         self.is_admin = False
 
-        # Overwrite members with ones from table if defined
-        self.read(self.guild_id, self.user_id)
+        # Overwrite members with ones from table if defined and not just making
+        # an empty instance of the class
+        if ctx != None:
+            self.read(self.guild_id, self.user_id)
 
     def save(self) -> bool:
         """Save this UserPermission instance into the database.
@@ -158,16 +167,19 @@ class UserPermission():
             commit = False
         )
 
-        # If there was no match, return failure and don't change this
-        # UserPermission's members
+        # If there was an error executing the query, return failure
         if status.success is False:
             return False
+
+        # If the query was sucessful but simply had no results, return success
+        if status.result == []:
+            return True
 
         # There was a match, overwrite this UserPermission's members with
         # values from the database
         result = status.result[0]
         self.guild_id = guild_id
         self.user_id = user_id
-        self.is_blacklisted = bool(result[1])
-        self.is_admin = bool(result[2])
+        self.is_blacklisted = bool(result[0])
+        self.is_admin = bool(result[1])
         return True

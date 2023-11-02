@@ -13,11 +13,14 @@ malicious/annoying activity enabled by the bot to a minimum.
 # Import Discord Python API
 import discord
 
-# Import user permissions for each guild
-import discord_slash_commands.helpers.user_permission as user_perm
-
 # Import functions for asserting bot state
 import discord_slash_commands.helpers.application_context_checks as ctx_check
+
+# Import helper for interacting with internal database
+from discord_slash_commands.helpers import sqlite
+
+# Import user permissions for each guild
+import discord_slash_commands.helpers.user_permission as user_perm
 
 #==============================================================================#
 # Define underlying structure                                                  #
@@ -52,13 +55,13 @@ async def permission_modify(
     ),
     permission: discord.Option(
         str,
-        description="The permission you wish to modify for member_name."
-        options=["blacklist", "admin"]
+        description="The permission you wish to modify for member_name.",
+        choices=["blacklist", "admin"]
     ),
     operation: discord.Option(
         str,
-        description="How you wish to modify the permission for member_name."
-        options=["add", "remove"]
+        description="How you wish to modify the permission for member_name.",
+        choices=["add", "remove"]
     ),
 ):
     """Tell bot to do operation on permission for member_name.
@@ -82,34 +85,42 @@ async def permission_modify(
     # give them verbose error messages and an example to help them
     if member is None:
         err_msg = f"I could not find {member_name} in this guild." \
-            + f"\n{example_str}"
+            + "\nHave you tried using their discriminator instead of their " \
+            + "display name or nick?" \
+            + "\nHere's an example command." \
+            + "\nMake Jasper an admin for this bot in this guild." \
+            + "\n`/permissions modify member_name: Jasper permission: " \
+            + "admin operation: add`"
+        await ctx.respond(ephemeral=True, content=err_msg)
         return False
 
     # If we got here, the arguments are valid and safe to act upon
     # Try to add this user to the list of blacklisted users for this guild
     user_permission = user_perm.UserPermission()
+    user_permission.guild_id = ctx.guild.id
+    user_permission.user_id = member.id
     user_permission.read(ctx.guild.id, member.id)
 
-    permission_value = 1 if operation == "add" else 0
+    permission_value = True if operation == "add" else False
     if permission == "blacklist":
         user_permission.is_blacklisted = permission_value
     elif permission == "admin":
         user_permission.is_admin = permission_value
 
     if user_permission.save() is False:
-        await ctx.respond(ephemeral=True, content=sqlite.error_paste_str)
+        await ctx.respond(ephemeral=True, content=user_perm.sql_error_paste_str)
         return False
 
     await ctx.respond(
         ephemeral=False,
-        content=f"Successfully {operation}ed {member_name} to/from "
-            + "{permission} list."
+        content=f"Successfully did {operation} for {member_name} on "
+            + f"{permission} list."
     )
     return True
 
 
 
-@permission_slash_command_group.command(
+@permissions_slash_command_group.command(
     name="view",
     description="See who has what permissions has over me in this guild."
 )
@@ -117,8 +128,8 @@ async def permission_view(
     ctx,
     permission: discord.Option(
         str,
-        description="The permission you wish to view the users of."
-        options=["blacklist", "admin"]
+        description="The permission you wish to view the users of.",
+        choices=["blacklist", "admin"]
     )
 ):
     """Tell the bot show who has what permissions over it in this guild.
@@ -140,14 +151,14 @@ async def permission_view(
     # Execute SQL query
     status = sqlite.run(
         file_name = "permissions",
-        query = f"SELECT user_id FROM guild_{ctx.guild.id} WHERE {condition}"
+        query = f"SELECT user_id FROM guild_{ctx.guild.id} WHERE {condition}",
         query_parameters = (),
         commit = False
     )
 
     # Tell the author if the query failed
     if status.success is False:
-        await ctx.respond(ephemeral=True, content=sqlite.error_paste_str)
+        await ctx.respond(ephemeral=True, content=user_perm.sql_error_paste_str)
         return False
 
     # Tell the author if the query was successful but the results were empty
@@ -161,7 +172,7 @@ async def permission_view(
 
     # Tell the author every member from the results
     mention_list = []
-    for user_id in status.result:
-        mention_list.append(f"<@{user_id}>")
+    for match_tuple in status.result:
+        mention_list.append(f"<@{match_tuple[0]}>")
     await ctx.respond(ephemeral=True, content=",".join(mention_list))
     return True

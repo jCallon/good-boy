@@ -69,6 +69,7 @@ def add_connection(
     )
 
     # Add or overwrite connection to connection_dict
+    global connection_dict
     connection_dict[file_name] = connection
 
     for table_name in table_name_list:
@@ -114,14 +115,6 @@ class Status():
 
 
 
-# Define a string you can paste if there was an error with run
-error_paste_str = "Could not complete action for unknown reasons." \
-+ "\nPlease ask the bot owner, "
-+ "<@user_permission.get_discord_id_of_bot_owner()>, " \
-+ " to look into the isse and give them details on what happened." \
-
-
-
 def run(
     file_name: str,
     query: str,
@@ -153,7 +146,7 @@ def run(
         return Status(False, [])
 
     # Get cursor (iterator-like object) for the connection
-    cursor = connection_dict[file_name].cursor()
+    cursor = connection.cursor()
 
     # Run query
     sqlite_response = cursor.execute(query, query_parameters)

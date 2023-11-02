@@ -190,13 +190,10 @@ def assert_author_is_bot_owner(
         Whether the check passed.
     """
     return application_context_check(
-        guild_permission_bank.user_has_permission(
-            "bot owner",
-            ctx.author.id,
-            ctx.guild.id) is True,
+        ctx.author.id == user_perm.get_bot_owner_discord_user_id(),
         "You must be the bot owner to use this command." \
             + "\nThe bot owner is " \
-            + f"{at(guild_permission.get_bot_owner_discord_user_id())}."
+            + f"{at(user_perm.get_bot_owner_discord_user_id())}."
     )
 
 
@@ -215,9 +212,10 @@ def assert_author_is_admin(
     Returns:
         Whether the check passed.
     """
-    user_permission = user_perm.UserPermission(ctx.author.id, ctx.guild.id)
+    user_permission = user_perm.UserPermission(ctx)
     return application_context_check(
-        user_permission.is_admin is True,
+        ctx.author.id == user_perm.get_bot_owner_discord_user_id() or
+            user_permission.is_admin is True,
         "You must be one of my admins to use this command in this guild." \
             + "\nYou can get the list of my admins in this guild via " \
             + "`/permissions view permission: admin`."
@@ -239,7 +237,7 @@ def assert_author_is_not_blacklisted(
     Returns:
         Whether the check passed.
     """
-    user_permission = user_perm.UserPermission(ctx.author.id, ctx.guild.id)
+    user_permission = user_perm.UserPermission(ctx)
     return application_context_check(
         user_permission.is_blacklisted is False,
         "You are blacklisted from using most of my commands in this guild." \
@@ -266,13 +264,17 @@ def assert_author_is_allowed_to_call_command(
     Returns:
         Whether the check passed.
     """
+    # The bot owner can do anything they want with the bot
+    if ctx.author.id == get_bot_owner_discord_user_id():
+        return True
+
     # If a command is not from a guild and does not require a guild
     # (caught by guild_only=True), it's generally free-reign
     if ctx.guild is None:
         return True
 
     # Get the current UserPermissions of the author
-    user_permission = user_perm.UserPermission(ctx.author.id, ctx.guild.id)
+    user_permission = user_perm.UserPermission(ctx)
 
     # Bot admins are always allowed to call commands within their guild
     if user_permission.is_admin is True:

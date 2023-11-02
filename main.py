@@ -75,17 +75,16 @@ async def on_ready():
         ]
     )
 
-    # TODO: uncomment once feature is enabled
     # Create or get connection to existing member permissions database
-    #sqlite.add_connection(
-    #    file_name="permissions",
-    #    table_name_list=connected_guild_id_list,
-    #    column_list=[
-    #        "user_id INTEGER NOT NULL PRIMARY KEY",
-    #        "is_admin INTEGER NOT NULL",
-    #        "is_blacklisted INTEGER NOT NULL"
-    #    ]
-    #)
+    sqlite.add_connection(
+        file_name="permissions",
+        table_name_list=connected_guild_id_list,
+        column_list=[
+            "user_id INTEGER NOT NULL PRIMARY KEY",
+            "is_admin INTEGER NOT NULL",
+            "is_blacklisted INTEGER NOT NULL"
+        ]
+    )
 
     # TODO: uncomment once feature is enabled
     # Create or get connection to existing polls database
