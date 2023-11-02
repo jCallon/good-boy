@@ -30,7 +30,7 @@ import discord_slash_commands.helpers.user_permission as user_perm
 permissions_slash_command_group = discord.SlashCommandGroup(
     #checks = default,
     #default_member_permissions = default,
-    description="Commands that affect who has what permissions over me",
+    description = "Commands that affect who has what permissions over me",
     #description_localizations = default,
     #guild_ids = default,
     guild_only = True,
@@ -64,7 +64,7 @@ async def permission_modify(
         choices=["add", "remove"]
     ),
 ):
-    """Tell bot to do operation on permission for member_name.
+    """Tell bot, for member_name, do operation for permission.
 
     Tell the bot what user's permissions to modify in this guild and what to
     modify it to.
@@ -76,7 +76,7 @@ async def permission_modify(
         operation: How to modify the permission to affect
     """
     # Update and read member cache, if you don't do this get_member_named may
-    # not work for members who have no recently interacted with the bot
+    # not work for members who have not recently interacted with the bot
     await ctx.guild.query_members(member_name)
     member = ctx.guild.get_member_named(member_name)
 
@@ -84,14 +84,16 @@ async def permission_modify(
     # If the author's arguments were invalid,
     # give them verbose error messages and an example to help them
     if member is None:
-        err_msg = f"I could not find {member_name} in this guild." \
+        await ctx.respond(
+            ephemeral=True,
+            content=f"I could not find {member_name} in this guild." \
             + "\nHave you tried using their discriminator instead of their " \
             + "display name or nick?" \
             + "\nHere's an example command." \
             + "\nMake Jasper an admin for this bot in this guild." \
             + "\n`/permissions modify member_name: Jasper permission: " \
             + "admin operation: add`"
-        await ctx.respond(ephemeral=True, content=err_msg)
+        )
         return False
 
     # If we got here, the arguments are valid and safe to act upon
