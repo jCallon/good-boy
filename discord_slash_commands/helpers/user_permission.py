@@ -2,7 +2,8 @@
 
 This file defines classes and functions for storing what users have what
 permissions for this bot in what guilds. This bot does not need or want to
-create or modify guild roles. The less permissions the better.
+create or modify guild roles. The less permissions the bot requires to run
+the better.
 """
 
 #==============================================================================#
@@ -46,28 +47,35 @@ sql_error_paste_str = "Could not complete action for unknown reasons." \
 
 
 
-# TODO: can happlity remove users with default permissions, same for tts and other tables? maybe have sperate thread to clean them or do it on an event?
+# TODO: can happily remove users with default permissions, same for tts and
+# other tables? maybe have seperate thread to clean them periodically or do
+# it on an event?
 class UserPermission():
-    """TODO.
+    """Define an instance of info held on a user for permissions.
 
-    TODO.
+    Define an instance of information held on a user for keeping track of how
+    they are allowed to use the bot. Information is held per-guild, where each
+    guild has its own table, guild_$guild_id.
 
     Attributes:
-        guild_id: TODO
-        user_id: TODO
-        is_blacklisted: TODO
-        is_admin: TODO
+        guild_id: The unique identifier of the guild where the user's
+            permissions are being specified.
+        user_id: The unique identifier of the user whose permissions are being
+            specified.
+        is_blacklisted: Whether to consider this user as 'blacklisted', meaning
+            they are not allowed to use most of this bot's commands.
+        is_admin: Whether to consider this user an 'admin', meaning they are a
+            highly-trusted user allowed to execute more dangerous commands such
+            as killing the bot or blacklisting others from using the bot.
     """
-    def __init__(
-        self,
-        ctx: discord.ApplicationContext = None
-    ):
-        """TODO.
+    def __init__(self, ctx: discord.ApplicationContext = None):
+        """Initialize this UserPermission.
 
-        TODO.
+        Set the members of this UserPermission based on members from ctx.
 
         Args:
-            TODO
+            self: This UserPermission
+            ctx: The context a /permissions command was called from
         """
         # Fill self.guild_id
         # Sometimes a command will be sent from DMs, so it will not have a guild
@@ -99,7 +107,9 @@ class UserPermission():
         """Save this UserPermission instance into the database.
 
         Insert this UserPermission into the permissions database. Each guild
-        has its own table named after its guild id. TODO
+        has its own table named after its guild id. If a UserPermission with the
+        same user_id already exists, just update its is_blacklisted and is_admin
+        to match this UserPermission. 
 
         Args:
             self: This UserPermission
@@ -109,7 +119,7 @@ class UserPermission():
             if the connection to the database, or the database itself, is not
             found or is faulty.
         """
-        # Check safety of parameters
+        # Check safety of parameters to prevent SQL injection
         if not (
             isinstance(self.guild_id, int) and \
             isinstance(self.user_id, int) and \
@@ -118,7 +128,7 @@ class UserPermission():
         ):
             return False
 
-        # Cast booleans to integers
+        # Cast booleans to integers, bool is not a SQLite datatype, but int is
         is_blacklisted = int(self.is_blacklisted)
         is_admin = int(self.is_admin)
 
@@ -133,26 +143,24 @@ class UserPermission():
             commit = True
         ).success is True
 
-
     def read(self, guild_id: int, user_id: int) -> bool:
-        """Copy UserPermission matching TODO from database.
+        """Copy UserPermission matching user_id from database.
 
         Try to find the row in the table guild_$guild_id matching user_id for
-        the TTS user information database. If it exists, overwrite the members
+        the Permissions user database. If it exists, overwrite the members
         of this UserPermission with its data entries.
 
         Args:
             self: This UserPermission
-            guild_id: Users may have preferences that differ per guild. This
-                parameter lets you specify the guild you are checking this
+            guild_id: Users may have permissions that differ per guild. This
+                parameter lets you specify the guild you are getting this
                 user's preferences for.
             user_id: The ID of the user you want to know the preferences of.
 
         Returns:
             Whether the operation was successful. It may not be, for example,
             if the connection to the database, or the database itself, is not
-            found or is faulty. Or, this user simply does not have preferences
-            in this guild.
+            found or is faulty.
         """
         # Check safety of parameters
         if not (isinstance(guild_id, int) and isinstance(user_id, int)):
@@ -172,14 +180,17 @@ class UserPermission():
             return False
 
         # If the query was sucessful but simply had no results, return success
+        # and set this UserPermission to default permissions
+        self.guild_id = guild_id
+        self.user_id = user_id
         if status.result == []:
+            self.is_blacklisted = False
+            self.is_admin = False
             return True
 
         # There was a match, overwrite this UserPermission's members with
         # values from the database
         result = status.result[0]
-        self.guild_id = guild_id
-        self.user_id = user_id
         self.is_blacklisted = bool(result[0])
         self.is_admin = bool(result[1])
         return True
