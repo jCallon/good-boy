@@ -15,7 +15,7 @@ import random
 import discord
 
 # Custom functions for denying commands based off of bot state
-import discord_slash_commands.helpers.application_context_checks as ctx_checks
+import discord_slash_commands.helpers.application_context_checks as ctx_check
 
 #==============================================================================#
 # Define underlying structure                                                  #
@@ -24,7 +24,7 @@ import discord_slash_commands.helpers.application_context_checks as ctx_checks
 # Create RNG slash command group
 # TODO: Rename to random?
 rng_slash_command_group = discord.SlashCommandGroup(
-    checks = [ctx_checks.assert_author_is_allowed_to_call_command],
+    checks = [ctx_check.assert_author_is_allowed_to_call_command],
     #default_member_permissions = default,
     description = "Random number generation commands",
     #description_localizations = default,
