@@ -415,7 +415,7 @@ TTS_DEFAULT_VOLUME = 2.0
 
 # Define function for letting user say text in voice chat
 # TODO: make DM messages that are just text and not slash commands be
-# interpretted as TTS
+# interpretted as TTS, while not letting them avoid blacklisting
 # NOTE: gtts' write_to_fp() theoretically avoids writing to file?
 @tts_slash_command_group.command(
     name="play",
@@ -443,8 +443,6 @@ async def tts_play(
         ctx: The context this SlashCommand was called under
         text_to_say: The text to say in voice chat
     """
-    # TODO: make sure use can't get around blacklist by using DMs
-
     # Determine if the author's arguments are valid
     err_msg = ""
     if len(text_to_say) < 0:
