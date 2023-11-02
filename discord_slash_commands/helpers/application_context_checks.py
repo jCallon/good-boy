@@ -249,52 +249,6 @@ def assert_author_is_not_blacklisted(
 
 
 
-def assert_bot_is_accepting_non_admin_commands(
-    ctx: discord.ApplicationContext
-) -> bool:
-    """Assert the bot is accepting commands from non-admins in this guild.
-
-    Assert the bot is currently accepting commands from non-admin members in the
-    guild this slash command is being called from.
-
-    Args:
-        ctx: The context the slash command using this check was called under
-
-    Returns:
-        Whether the check passed.
-    """
-    return application_context_check(
-        guild_permission_bank.get_is_locked(ctx.guild.id) is False,
-        "The bot must be accepting non-admin commands to use this command, " \
-            + "which it currently isn't." \
-            + "\nAn admin can reverse this via `/settings lock stop`."
-    )
-
-
-
-def assert_bot_is_not_accepting_non_admin_commands(
-    ctx: discord.ApplicationContext
-) -> bool:
-    """Assert the bot is not accepting commands from non-admins in this guild.
-
-    Assert the bot is not currently accepting commands from non-admin members in
-    the guild this slash command is being called from.
-
-    Args:
-        ctx: The context the slash command using this check was called under
-
-    Returns:
-        Whether the check passed.
-    """
-    return application_context_check(
-        guild_permission_bank.get_is_locked(ctx.guild.id) is True,
-        "The bot must not be accepting non-admin commands to use this " \
-            + "command, which it currently isn't." \
-            + "\nAn admin can reverse this via `/settings lock start`."
-    )
-
-
-
 def assert_author_is_allowed_to_call_command(
     ctx: discord.ApplicationContext
 ) -> bool:
@@ -331,4 +285,6 @@ def assert_author_is_allowed_to_call_command(
     # The author called this from a guild, are not an admin in that guild,
     # and are not blacklisted in that guild. Whether their command is allowed
     # is up to whether the bot is currently accepting non-admin commands.
-    return assert_bot_is_accepting_non_admin_commands(ctx)
+    # TODO: uncomment once feature is enabled
+    #return assert_bot_is_accepting_non_admin_commands(ctx)
+    return True
