@@ -12,10 +12,8 @@ member is trying to call.
 # Import Discord Python API
 import discord
 
-# Custom classes for keeping track of guild's user permissions for this bot
-import discord_slash_commands.helpers.guild_permission as guild_permission
-from discord_slash_commands.helpers.guild_permission \
-import guild_permission_bank
+# Import user permissions for each guild
+import discord_slash_commands.helpers.user_permission as user_perm
 
 #==============================================================================#
 # Define underlying structure                                                  #
@@ -217,14 +215,12 @@ def assert_author_is_admin(
     Returns:
         Whether the check passed.
     """
+    user_permission = user_perm.UserPermission(ctx.author.id, ctx.guild.id)
     return application_context_check(
-        guild_permission_bank.user_has_permission(
-            "admin",
-            ctx.author.id,
-            ctx.guild.id) is True,
+        user_permission.is_admin is True,
         "You must be one of my admins to use this command in this guild." \
             + "\nYou can get the list of my admins in this guild via " \
-            + "`/settings admin list`."
+            + "`/permissions view permission: admin`."
     )
 
 
@@ -243,15 +239,12 @@ def assert_author_is_not_blacklisted(
     Returns:
         Whether the check passed.
     """
+    user_permission = user_perm.UserPermission(ctx.author.id, ctx.guild.id)
     return application_context_check(
-        guild_permission_bank.user_has_permission(
-            "blacklisted",
-            ctx.author.id,
-            ctx.guild.id
-            ) is False,
+        user_permission.is_blacklisted is False,
         "You are blacklisted from using most of my commands in this guild." \
             + "\nYou can get the list of admins you can appeal to via " \
-            + "`/settings admin list`."
+            + "`/permissions view permission: admin`."
     )
 
 
@@ -324,18 +317,15 @@ def assert_author_is_allowed_to_call_command(
     if ctx.guild is None:
         return True
 
+    # Get the current UserPermissions of the author
+    user_permission = user_perm.UserPermission(ctx.author.id, ctx.guild.id)
+
     # Bot admins are always allowed to call commands within their guild
-    if guild_permission_bank.user_has_permission(
-        "admin",
-        ctx.author.id,
-        ctx.guild.id) is True:
+    if user_permission.is_admin is True:
         return True
 
     # If the author is blacklisted in this guild, their command is not allowed
-    if guild_permission_bank.user_has_permission(
-        "blacklisted",
-        ctx.author.id,
-        ctx.guild.id) is True:
+    if user_permission.is_blacklisted is True:
         return assert_author_is_not_blacklisted(ctx)
 
     # The author called this from a guild, are not an admin in that guild,
