@@ -26,9 +26,8 @@ import discord_slash_commands.helpers.application_context_checks as ctx_check
 
 
 # Create voice slash command group
-# TODO: Add admin/user permission checks
 voice_slash_command_group = discord.SlashCommandGroup(
-    #checks = default,
+    checks = [ctx_check.assert_author_is_allowed_to_call_command],
     #default_member_permissions = default,
     description = "Voice state commands",
     #description_localizations = default,

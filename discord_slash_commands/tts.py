@@ -391,10 +391,10 @@ tts_file_info_list = TTSFileInfoList(
 
 
 # Create TTS slash command group
-# TODO: Add checks later, make way for users to use TTS while other audio is
+# TODO: make way for users to use TTS while other audio is
 # playing? Seperate TTS bot connection?
 tts_slash_command_group = discord.SlashCommandGroup(
-    #checks = default,
+    checks = [ctx_check.assert_author_is_allowed_to_call_command],
     #default_member_permissions = default,
     description = "Text to speech commands",
     #description_localizations = default,
@@ -415,7 +415,7 @@ TTS_DEFAULT_VOLUME = 2.0
 
 # Define function for letting user say text in voice chat
 # TODO: make DM messages that are just text and not slash commands be
-# interpretted as TTS
+# interpretted as TTS, while not letting them avoid blacklisting
 # NOTE: gtts' write_to_fp() theoretically avoids writing to file?
 @tts_slash_command_group.command(
     name="play",

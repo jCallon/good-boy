@@ -21,6 +21,7 @@ from dotenv import load_dotenv
 from discord_slash_commands import rng
 from discord_slash_commands import voice
 from discord_slash_commands import tts
+from discord_slash_commands import permissions
 
 # Import helper for interacting with internal database
 from discord_slash_commands.helpers import sqlite
@@ -29,12 +30,23 @@ from discord_slash_commands.helpers import sqlite
 # Define underlying structure                                                  #
 #==============================================================================#
 
+# Enable accurate member cache (needed for settings slash commands)
+discord.Intents.default().members = True
+
+
+
+# Load environment variables
+load_dotenv()
+
+
+
 # Declare PyCord Discord bot, the interface between Discord and the bot code,
 # and add all PyCord.SlashCommand desired to be added to the to the bot
-discord_bot = discord.Bot()
+discord_bot = discord.Bot(intents=discord.Intents.default())
 discord_bot.add_application_command(rng.rng_slash_command_group)
 discord_bot.add_application_command(voice.voice_slash_command_group)
 discord_bot.add_application_command(tts.tts_slash_command_group)
+discord_bot.add_application_command(permissions.permissions_slash_command_group)
 
 
 
@@ -63,17 +75,16 @@ async def on_ready():
         ]
     )
 
-    # TODO: uncomment once feature is enabled
     # Create or get connection to existing member permissions database
-    #sqlite.add_connection(
-    #    file_name="permissions",
-    #    table_name_list=connected_guild_id_list,
-    #    column_list=[
-    #        "user_id INTEGER NOT NULL PRIMARY KEY",
-    #        "is_admin INTEGER NOT NULL",
-    #        "is_blacklisted INTEGER NOT NULL"
-    #    ]
-    #)
+    sqlite.add_connection(
+        file_name="permissions",
+        table_name_list=connected_guild_id_list,
+        column_list=[
+            "user_id INTEGER NOT NULL PRIMARY KEY",
+            "is_admin INTEGER NOT NULL",
+            "is_blacklisted INTEGER NOT NULL"
+        ]
+    )
 
     # TODO: uncomment once feature is enabled
     # Create or get connection to existing polls database
@@ -142,8 +153,8 @@ async def on_application_command_error(
 # Run Discord bot                                                              #
 #==============================================================================#
 
-# Load environment variables
-load_dotenv()
+
+
 # Get bot token from environment variables
 BOT_TOKEN = str(os.getenv("TOKEN"))
 # Start bot

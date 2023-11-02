@@ -12,9 +12,28 @@ member is trying to call.
 # Import Discord Python API
 import discord
 
+# Import user permissions for each guild
+import discord_slash_commands.helpers.user_permission as user_perm
+
 #==============================================================================#
 # Define underlying structure                                                  #
 #==============================================================================#
+
+def at(user_id: int) -> str:
+    """Create an @mention from user_id.
+
+    To refer to a user uniquely and unabmiguously, you can @mention them. You
+    can do this from a bot by formatting the user id in certain way.
+
+    Args:
+        user_id: The ID of the user to @mention
+
+    Returns:
+        A string that will @mention the given user when put in a message.
+    """
+    return f"<@{user_id}>"
+
+
 
 def application_context_check(
     check_passed: bool,
@@ -153,3 +172,121 @@ def assert_bot_is_not_playing_audio_in_voice_chat(
             + "\nPlease wait until I finish playing my current audio, or " \
             + "stop my current audio via `/voice stop`."
     )
+
+
+
+def assert_author_is_bot_owner(
+    ctx: discord.ApplicationContext
+) -> bool:
+    """Assert the message author is the owner of this bot.
+
+    Assert the user ID of the message author is the same as the member ID of the
+    bot owner.
+
+    Args:
+        ctx: The context the slash command using this check was called under
+
+    Returns:
+        Whether the check passed.
+    """
+    return application_context_check(
+        ctx.author.id == user_perm.get_bot_owner_discord_user_id(),
+        "You must be the bot owner to use this command." \
+            + "\nThe bot owner is " \
+            + f"{at(user_perm.get_bot_owner_discord_user_id())}."
+    )
+
+
+
+def assert_author_is_admin(
+    ctx: discord.ApplicationContext
+) -> bool:
+    """Assert the message author is an admin in this guild.
+
+    Assert the message author has admin privelages for the bot in the guild this
+    slash command is being called from.
+
+    Args:
+        ctx: The context the slash command using this check was called under
+
+    Returns:
+        Whether the check passed.
+    """
+    user_permission = user_perm.UserPermission(ctx)
+    return application_context_check(
+        ctx.author.id == user_perm.get_bot_owner_discord_user_id() or
+            user_permission.is_admin is True,
+        "You must be one of my admins to use this command in this guild." \
+            + "\nYou can get the list of my admins in this guild via " \
+            + "`/permissions view permission: admin`."
+    )
+
+
+
+def assert_author_is_not_blacklisted(
+    ctx: discord.ApplicationContext
+) -> bool:
+    """Assert the author is not blacklisted in this guild.
+
+    Assert the message author is not blacklisted from using this bot in the
+    guild this slash command is being called from.
+
+    Args:
+        ctx: The context the slash command using this check was called under
+
+    Returns:
+        Whether the check passed.
+    """
+    user_permission = user_perm.UserPermission(ctx)
+    return application_context_check(
+        user_permission.is_blacklisted is False,
+        "You are blacklisted from using most of my commands in this guild." \
+            + "\nYou can get the list of admins you can appeal to via " \
+            + "`/permissions view permission: admin`."
+    )
+
+
+
+def assert_author_is_allowed_to_call_command(
+    ctx: discord.ApplicationContext
+) -> bool:
+    """Assert the message author is allowed to call the this command.
+
+    Assert the command, based on where it was called from and the permissions of
+    its author, is allowed to be executed in this case. For example, when a
+    command is called by someone who is blacklisted in the same server as where
+    they're calling the command from, they should never be allowed to execute
+    most commands.
+
+    Args:
+        ctx: The context the slash command using this check was called under
+
+    Returns:
+        Whether the check passed.
+    """
+    # The bot owner can do anything they want with the bot
+    if ctx.author.id == get_bot_owner_discord_user_id():
+        return True
+
+    # If a command is not from a guild and does not require a guild
+    # (caught by guild_only=True), it's generally free-reign
+    if ctx.guild is None:
+        return True
+
+    # Get the current UserPermissions of the author
+    user_permission = user_perm.UserPermission(ctx)
+
+    # Bot admins are always allowed to call commands within their guild
+    if user_permission.is_admin is True:
+        return True
+
+    # If the author is blacklisted in this guild, their command is not allowed
+    if user_permission.is_blacklisted is True:
+        return assert_author_is_not_blacklisted(ctx)
+
+    # The author called this from a guild, are not an admin in that guild,
+    # and are not blacklisted in that guild. Whether their command is allowed
+    # is up to whether the bot is currently accepting non-admin commands.
+    # TODO: uncomment once feature is enabled
+    #return assert_bot_is_accepting_non_admin_commands(ctx)
+    return True

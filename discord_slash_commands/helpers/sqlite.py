@@ -69,6 +69,7 @@ def add_connection(
     )
 
     # Add or overwrite connection to connection_dict
+    global connection_dict
     connection_dict[file_name] = connection
 
     for table_name in table_name_list:
@@ -145,7 +146,7 @@ def run(
         return Status(False, [])
 
     # Get cursor (iterator-like object) for the connection
-    cursor = connection_dict[file_name].cursor()
+    cursor = connection.cursor()
 
     # Run query
     sqlite_response = cursor.execute(query, query_parameters)

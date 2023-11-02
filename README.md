@@ -7,16 +7,19 @@ Discord's 'new' slash-command API will give you a list of commands I support and
 But, here's a high level overview of the commands I currently support.
 
 ## Currently supported
-| Command                               | Description                                          |
-| ------------------------------------- | ---------------------------------------------------- |
-| `/rng roll $whole $min $max`          | Roll a random number.                                |
-| `/rng pick $number $repeats $options` | Pick one or more items from a list.                  |
-| `/voice join`                         | Join the voice channel you are in.                   |
-| `/voice leave`                        | Leave the voice channel you are in.                  |
-| `/voice stop`                         | Stop playing the audio I am currently playing.       |
-| `/tts play $text`                     | Say specified text on your behalf in voice chat.     |
-| `/tts spoken_name $new_spoken_name`   | Change the name/pronounciation TTS refers to you by. |
-| `/tts language $new_language`         | Change the language/accent TTS speaks in for you.    |
+| Command                                   | Description                                          |
+| ----------------------------------------- | ---------------------------------------------------- |
+| `/rng roll $whole $min $max`              | Roll a random number.                                |
+| `/rng pick $number $repeats $options`     | Pick one or more items from a list.                  |
+| `/voice join`                             | Join the voice channel you are in.                   |
+| `/voice leave`                            | Leave the voice channel you are in.                  |
+| `/voice stop`                             | Stop playing the audio I am currently playing.       |
+| `/tts play $text`                         | Say specified text on your behalf in voice chat.     |
+| `/tts spoken_name $name`                  | Change the name/pronounciation TTS refers to you by. |
+| `/tts language $language`                 | Change the language/accent TTS speaks in for you.    |
+| `/permissions modify $who $perm $new_val` | Modify the permissions a user has over me.           |
+| `/permissions view $perm`                 | List users with a certain permission type over me.   |
+
 
 ## Backlog
 | Command                       | Description                                         |
@@ -37,8 +40,7 @@ But, here's a high level overview of the commands I currently support.
 | `/listen $on_or_off`          | Set whether to be listened to for commands or not.  |
 | `/poll $subject $options`     | Create a basic poll in this text chat.              |
 | `/remind $when $what`         | Set a reminder for yourself in this text chat       |
-| `/admin blacklist $user $why` | Ban someone (ex. annoying/abusive) from using me.   |
-| `/admin unblacklist $user`    | Unban someone previously banned from using me.      |
-| `/admin pause`                | Make me unresponsinve to non-admin messages.        |
-| `/admin unpause`              | Make me responsive to non-admin messages.           |
-| `/admin kill`                 | Disconnect me from the server until I am restarted. |
+| `/settings lock start`        | Make me unresponsive to non-admin messages.         |
+| `/settings lock stop`         | Make me responsive to non-admin messages.           |
+| `/settings kill`              | Disconnect me from Discord.                         |
+| `/settings get_invite_link`   | Get an invite link for me to join a guild.          |
