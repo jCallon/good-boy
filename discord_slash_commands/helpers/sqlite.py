@@ -114,6 +114,14 @@ class Status():
 
 
 
+# Define a string you can paste if there was an error with run
+error_paste_str = "Could not complete action for unknown reasons." \
++ "\nPlease ask the bot owner, "
++ "<@user_permission.get_discord_id_of_bot_owner()>, " \
++ " to look into the isse and give them details on what happened." \
+
+
+
 def run(
     file_name: str,
     query: str,
