@@ -20,6 +20,152 @@ import sqlite3
 # Define underlying structure                                                  #
 #==============================================================================#
 
+class SQLTime():
+    """TODO.
+
+    TODO.
+
+    Attributes:
+        TODO
+    """
+    def __init__(
+        self,
+        year: int = 0,
+        month: int = 0,
+        day: int = 0,
+        hour: int = 0,
+        minute: int = 0,
+    ):
+        """TODO.
+
+        TODO.
+
+        Args:
+            TODO
+        """
+        # Year integer, including century, ex. 2019
+        self.year = year
+        # Month integer, ex. 4 = April
+        self.month = month
+        # Day integer, ex. 12 = 12th
+        self.day = day
+        # Hour integer, military time. ex. 23 = 11PM
+        self.hour = hour
+        # Minute integer, ex. 31 = 31 minutes
+        self.minute = minute
+
+    def is_safe(self) -> bool:
+        """TODO.
+
+        TODO.
+
+        Args:
+            TODO
+
+        Returns:
+            TODO.
+        """
+        try:
+            self.to_struct_time()
+            return True
+        except:
+            return False
+
+    def from_struct_time(self, struct_time: time.struct_time = None) -> None:
+        """TODO.
+
+        TODO.
+
+        Args:
+            TODO
+        """
+        # Get current local time if no time was provided
+        if struct_time == None:
+            struct_time = time.localtime()
+
+        # Read members from current local time
+        self.year = struct_time.tm_year
+        self.month = struct_time.tm_mon
+        self.day = struct_time.tm_day
+        self.hour = struct_time.tm_hour
+        self.minute = struct_time.tm_min
+
+    def to_struct_time(self) -> time.struct_time:
+        """TODO.
+
+        TODO.
+
+        Args:
+            TODO
+
+        Returns:
+            TODO.
+        """
+        # Create struct_time from string version of this class 
+        return time.strptime(self.to_str())
+
+    def from_str(self, string: str) -> None:
+        """TODO.
+
+        TODO.
+
+        Args:
+            TODO
+        """
+        # Parse the passed in string into a struct_time
+        struct_time = time.strptime("%Y%b%d %H:%M", string)
+        self.from_struct_time(struct_time)
+
+    def to_str(self) -> str:
+        """TODO.
+
+        TODO.
+
+        Args:
+            TODO
+
+        Returns:
+            TODO.
+        """
+        # See https://docs.python.org/3/library/time.html#time.strftime
+        return time.strftime(
+            "%Y%b%d %H:%M",
+            (
+                self.year,
+                self.month,
+                self.day,
+                self.hour,
+                self.minute
+            )
+        )
+
+    def from_epoch_delta(self, epoch_delta: int) -> None:
+        """TODO.
+
+        TODO.
+
+        Args:
+            TODO
+        """
+        self.from_struct_time(time.localtime(epoch_delta))
+
+    # NOTE: According to the time module, our current epoch started on 01JAN1970
+    #       and will end in 2038.
+    def to_epoch_delta(self) -> int:
+        """TODO.
+
+        TODO.
+
+        Args:
+            TODO
+
+        Returns:
+            TODO.
+        """
+        return time.mktime(self.to_struct_time())
+
+
+
 # Define a global dictionary of connections to database files, where each
 # key is 'db_file', or the file name, within the path to the database file,
 # in this example, ./db_file.db. The point of this is to keep Connection made
