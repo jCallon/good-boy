@@ -1,6 +1,7 @@
-"""PyCord.SlashCommand for TODO.
+"""PyCord.SlashCommand for setting reminders.
 
-TODO.
+This file defines slash commands for letting someone create, modify, or delete a
+reminder, that may trigger once or multiple times later in guild or DM channel.
 """
 
 #==============================================================================#
@@ -84,6 +85,22 @@ class Reminder():
         self.expiration_time = expiration_time
         self.content = content
 
+    def from_tuple(source: tuple):
+        """TODO.
+
+        TODO.
+
+        Args:
+            TODO
+        """
+        self.reminder_id = source[0]
+        self.author_user_id = source[1]
+        self.channel_id = source[2]
+        self.recurrance_type = source[3]
+        self.next_occurance_time = source[4]
+        self.expiration_time = source[5]
+        self.content = source[6]
+
     def save(self) -> bool:
         """Save this Reminder instance into the database.
 
@@ -101,14 +118,15 @@ class Reminder():
         """
         # Check safety of parameters
         if not (
-            isinstance(self.reminder_id, int) and \
+            (isinstance(self.reminder_id, int) or \
+                isinstance(self.reminder_id, None)) and \
             isinstance(self.author_user_id, int) and \
             isinstance(self.channel_id, int) and \
             isinstance(self.recurrance_type, str) and \
             isinstance(self.next_occurance_time, int) and \
             isinstance(self.expiration_time, int) and \
             isinstance(self.content, str) and \
-            self.recurrance_type is in ("N", "D", "M", "Y") and \
+            self.recurrance_type is in ("N", "D", "W", "M", "Y") and \
             self.next_occurance_time >= 0 and \
             self.next_occurance_time <= 4294967295 and \
             self.expiration_time >= 0 and \
@@ -118,11 +136,13 @@ class Reminder():
             return False
 
         # Execute SQL query
+        # If no reminder_id is specified, SQLite will automatically generate a
+        # unique reminder_id, see https://www.sqlite.org/autoinc.html
         return sqlite.run(
             file_name = FILE_NAME,
             query = f"INSERT INTO {TABLE_NAME} VALUES "\
                 + "(" \
-                +     f"{self.reminder_id}," \
+                +     f"{'NULL' if reminder_id is None else self.reminder_id},"\
                 +     f"{self.author_user_id}," \
                 +     f"{self.channel_id}," \
                 +     "?," \
@@ -183,15 +203,32 @@ class Reminder():
 
         # There was a match, overwrite this Reminder's members with values from
         # the database
-        result = status.result[0]
-        self.reminder_id = reminder_id
-        self.author_user_id = result[0]
-        self.channel_id = result[1]
-        self.recurrance_type = result[2]
-        self.next_occurance_time = result[3]
-        self.expiration_time = result[4]
-        self.content = result[5]
+        self.from_tuple(status.result[0])
         return True
+
+    def delete(self, reminder_id: int):
+        """TODO.
+
+        TODO.
+
+        Args:
+            TODO
+
+        Returns:
+            TODO.
+        """
+        # Check safety of parameters
+        if not isinstance(reminder_id, int)):
+            return False
+
+        # Execute SQL query
+        return sqlite.run(
+            file_name = FILE_NAME,
+            query = f"DELETE FROM {TABLE_NAME} WHERE reminder_id="\
+                + f"{reminder.reminder_id}"
+            query_parameters = (),
+            commit = True
+        ).success
 
 
 
@@ -221,7 +258,7 @@ async def reminder_add(
     repeats: discord.Option(
         str,
         description="On what increment this reminder should repeat.",
-        choices=["never", "daily", "monthly", "yearly"]
+        choices=["never", "daily", "weekly", "monthly", "yearly"]
     ),
     start_time: discord.Option(
         str,
@@ -259,9 +296,10 @@ async def reminder_add(
     err_msg = ""
     start = sqlite.SQLTime()
     end = sqlite.SQLTime()
+
     try:
-        start_time.from_string(start_time)
-        end_time.from_string(end_time)
+        start.from_string(start_time)
+        end.from_string(end_time)
     except:
         err_msg += "Invalid format for start_time or end_time. "
             + "\nPlease use the format YYYYMMMDD HH:MM, where Y represent " \
@@ -269,6 +307,7 @@ async def reminder_add(
             + "hour, and M represents minute. " \
             + "\nFor example, January 1st 2020 at 5:21 PM would be 2020JAN01 " \
             + "17:21."
+
     now = sqlite.SQLTime()
     now.from_struct_time()
     if now.to_epoch_delta() > start.to_epoch_delta():
@@ -287,10 +326,64 @@ async def reminder_add(
         return False
 
     # If we got here, the arguments are valid and safe to act upon
-    #TODO, and also, tell user reminder id for them to reference
-    #TODO, and also, might be sensitive info which also means i should put a
-    # warning in the reminder creation
-    ctx.respond(ephemeral=True, content="")
+    # Create the reminder, save it, give the author details
+
+    # Create reminder
+    reminder = Reminder(
+        reminder_id = None,
+        author_user_id = ctx.author.id,
+        channel_id = ctx.channel.id,
+        recurrance_type = repeats[0].upper(),
+        next_occurrance_time = start.to_epoch_delta(),
+        expiration_time = end.to_epoch_delta(),
+        content = content
+    )
+
+    # Save reminder
+    if reminder.save() is False:
+        await ctx.respond(
+            ephemeral=True,
+            content="An internal issue ocurred creating a new reminder for you."
+        )
+        return True
+        
+
+    # Get its auto-generated ROWID
+    # ... see stackoverflow:
+    # how-to-retrieve-the-last-autoincremented-id-from-a-sqlite-table
+    # TODO: does this only work for auto-increment?
+    sqlite_repsonse = sqlite.run(
+        file_name = FILE_NAME,
+        query = "SELECT last_insert_rowid()"
+        query_parameters = (),
+        commit = False
+    )
+    if sqlite_response.success is False:
+        await ctx.respond(
+            ephemeral=True,
+            content="Your reminder was created, but there was an internal " \
+                + "issue getting the ID of your new reminder for you."
+        )
+        return True
+    reminder.reminder_id = sqlite_response.result[0]
+
+    # Tell author their reminder was created, other details
+    await ctx.respond(
+        ephemeral=True,
+        content="Created a reminder for you." \
+            + "\nPlease keep in mind, it will @mention you each time it " \
+            + "occurs, and will remind you via a public message in this " \
+            + "channel. The only people that can see the contents of the " \
+            + "reminder are you and the bot owner until it is printed (" \
+            + "the data to make the reminder actually work needs to be " \
+            + "stored somewhere!). Please delete/modify this reminder if " \
+            + "that does not sit well with you." \
+            + f"\nReminder ID: {reminder.id}" \
+            + f"\nRepeats: {repeats}" \
+            + f"\nStarts: {start_time}" \
+            + f"\nEnds: {end_time}" \
+            + f"\nContent: {content}" \
+    )
     return True
 
 
@@ -322,7 +415,7 @@ async def reminder_remove(
     if reminder.read(reminder_id) is False:
         err_msg += f"Could not find reminder with reminder ID {reminder_id}." \
             + "\nIt may have been deleted, or you simply typed it wrong. The " \
-            + "reminder id should be printed when you first make the " \
+            + "reminder_id should be printed when you first make the " \
             + "reminder and whenever it triggers."
     elif reminder.author_user_id != ctx.author.id and \
         user_permission.is_admin is False:
@@ -339,8 +432,12 @@ async def reminder_remove(
         return False
 
     # If we got here, the arguments are valid and safe to act upon
-    #TODO, and also, only let the original authors or admins remove reminders
-    ctx.respond(ephemeral=True, content="")
+    # Delete this reminder
+    reminder.delete(reminder_id)
+    await ctx.respond(
+        ephemeral=True,
+        content=f"Deleted reminder {reminder_id}."
+    )
     return True
 
 
@@ -349,7 +446,7 @@ async def reminder_remove(
     name="modify",
     description="Modify a reminder.",
 )
-async def reminder_remove(
+async def reminder_modify(
     ctx,
     reminder_id: discord.Option(
         int,
@@ -361,7 +458,8 @@ async def reminder_remove(
         choices=["repeats", "start_time", "end_time", "content"]
     new_value: discord.Option(
         str,
-        description="The new value for the field you chose."
+        description="The new value for the field you chose.",
+        max_length=200
     )
 ):
     """Tell bot to modify a field of an existing reminder for you.
@@ -387,6 +485,33 @@ async def reminder_remove(
     elif reminder.author_user_id != ctx.author.id:
         err_msg += "\nYou may not modify reminders you did not author."
 
+    if field == "repeats":
+        if new_value in ("never", "daily", "weekly", "monthly", "yearly"):
+            reminder.recurrance_type = new_value[0].upper()
+        else:
+            err_msg += "\nFor 'repeats', new_value must be either never, " \
+                + "daily, weekly, monthly, or yearly."
+    elif field in ("start_time", "end_time"):
+        new_time = SQLTime()
+        try:
+            new_time.from_str(new_value)
+            if field == "start_time":
+                # TODO: should be less than or equal to 
+                #       reminder.expiration_time, greater than current time
+                reminder.next_occurance_time = new_time.to_epoch_delta()
+            elif field == "end_time":
+                # TODO: should be greater than or equal to 
+                #       reminder.next_occurance_time, greater than current time
+                reminder.expiration_time = new_time.to_epoch_delta()
+        except:
+            err_msg += "\nFor 'start_time' or 'end_time', new_value follow " \
+                + "the format YYYYMMMDD HH:MM, where Y = year, M = month, " \
+                + "D = day, H = hour, and M = minute." \
+                + "\nFor example, January 1st 2020 at 5:21 PM would be " \
+                + "2020JAN01 17:21."
+    elif field == "content":
+        reminder.content = content
+
     # If the author's arguments were invalid,
     # give them verbose error messages and an example to help them
     if err_msg != "":
@@ -398,105 +523,144 @@ async def reminder_remove(
         return False
 
     # If we got here, the arguments are valid and safe to act upon
-    #TODO, and also, only let the original authors modify reminders
-    ctx.respond(ephemeral=True, content="")
+    # Save the changes
+    if reminder.save() is False:
+        await ctx.respond(
+            ephemeral=True,
+            content=f"There was an internal error saving your modifications."
+        )
+        return True
+
+    await ctx.respond(
+        ephemeral=True,
+        content=f"Changed {field} for reminder {reminder_id} to {new_value}."
+    )
     return True
 
 
 
 # TODO: run this in cog in main.py that runs every minute
 def send_all_outstanding_reminders(bot: discord.Bot) -> None:
-    """TODO.
+    """Send all outstanding reminders in the channels they were created in.
 
-    TODO.
+    Get all reminders with next_occurance_time greater than the current epoch
+    delta. For each, while their next_occurance_time is still greater than the
+    current epoch delta, send an @mention to their original author, with
+    reminder_id and content, in the channel matching channel_id. Calculate the
+    next next_occurance_time based on recurrance_type. If the next 
+    next_occurance_time would be greater than expiration_time, or the reminder
+    is set to never reoccur, remove it from the database. Otherwise update its
+    database entry with the new next_occurance_time.
 
     Args:
-        TODO
+        bot: A bot context to use to get the matching channel for channel_id
     """
     # Get current time
-    sql_time = SQLTime()
-    sql_time.from_struct_time()
+    now = SQLTime()
+    now.from_struct_time()
 
     # Get all reminders that must be dispatched
     sqlite_response = sqlite.run(
         file_name = FILE_NAME,
         query = f"SELECT * FROM {TABLE_NAME} WHERE"\
-            + f"next_occurance_time<={sql_time.to_epoch_delta()}"
+            + f"next_occurance_time<={now.to_epoch_delta()}"
         query_parameters = (),
         commit = False
     )
 
     # Exit early if SQL query failed
     if sqlite_response.success is False:
+        print("WARNING: SQL query to get reminders failed.")
         return
 
     # For each outstanding reminder...
     for result in sqlite_response.result:
         # Convert tuple into class
-        reminder = Reminder(
-            reminder_id = result[0],
-            author_user_id = result[1],
-            channel_id = result[2],
-            recurrance_type = result[3],
-            next_occurrance_time = result[4],
-            expiration_time = result[5],
-            content = result[6],
-        )
+        reminder = Reminder()
+        reminder.from_tuple(result)
 
-        # Convert reminder.next_occurance_time to SQLTime
-        next_occurance_time = SQLTime()
-        next_occurance_time.from_epoch_delta(
-            reminder.next_occurance_time
-        )
+        # Set variable for terminating following while loop early if needed
+        reminder_is_deleted = False
 
-        # Send outstanding reminder if possible
-        channel = bot.get_channel(reminder.channel_id)
-        if channel == None:
-            print(f"Warning: reminder {reminder.reminder_id}'s channel could " \
-                + "not be found, so its overdue reminder could not be sent.")
-        else:
-            channel.send(
-                ephemeral=False,
-                content=f"<@{reminder.author_user_id}>, I have a reminder " \
-                    + f"at {next_occurance_time.to_string()} for you." \
-                    + f"\nReminder ID: {reminder.reminder_id}."
-                    + f"\n{reminder.content}"
-            )
+        # Until the reminder is deleted or its next_occurance time is greater
+        # than the current time...
+        while result.next_occurance_time < now.to_epoch_delta and \
+            reminder_is_deleted is False:
+            # Convert reminder.next_occurance_time to SQLTime
+            next_occurance_time = SQLTime()
+            next_occurance_time.from_epoch_delta(reminder.next_occurance_time)
 
-        # If the reminder occurs every day, increment by a day
-        # The next day is in 24 hours * 60 minutes * 60 seconds
-        if reminder.reccurance_type == "D":
-            next_occurance_time.from_epoch_delta(
-                next_occurance_time.to_epoch_delta() + (24 * 60 * 60)
-            )
-        # If the reminder occurs every month, increment by a month
-        # Each month may last a different amount of seconds
-        elif reminder.recurrance_type == "M":
-            next_occurance_time.month += 1
-            if next_occurance_time > 12:
+            # Send outstanding reminder if possible
+            channel = bot.get_channel(reminder.channel_id)
+            if channel == None:
+                print(f"WARNING: reminder {reminder.reminder_id}'s channel " \
+                    + "couldn't be found, so its overdue reminder wasn't sent.")
+            else:
+                channel.send(
+                    ephemeral=False,
+                    content=f"<@{reminder.author_user_id}>, I have a " \
+                        + "reminder for {next_occurance_time.to_string()} "
+                        + "for you." \
+                        + f"\nReminder ID: {reminder.reminder_id}."
+                        + f"\n{reminder.content}"
+                )
+
+            # If the reminder occurs every day...
+            if reminder.reccurance_type == "D":
+                # The next day in seconds is...
+                # 24 hours/day * 60 minutes/hour * 60 seconds/minute
+                next_occurance_time.from_epoch_delta(
+                    next_occurance_time.to_epoch_delta() + (24 * 60 * 60)
+                )
+            # If the reminder occurs every week...
+            elif reminder.recurrance_type == "W":
+                # The next week in seconds is...
+                # 7 days/week * 24 hours/day * 60 minutes/hour * 
+                # 60 seconds/minute
+                next_occurance_time.from_epoch_delta(
+                    next_occurance_time.to_epoch_delta() + (7 * 24 * 60 * 60)
+                )
+            # If the reminder occurs every month...
+            elif reminder.recurrance_type == "M":
+                # The same day on the next month is non-constant seconds away.
+                # Let time library handle the calculations. Simply add a month,
+                # if it would overflow, and a year and wrap around.
+                next_occurance_time.month += 1
+                if next_occurance_time > 12:
+                    next_occurance_time.year += 1
+                    next_occurance_time.month = 1
+            # If the reminder occurs every month...
+            elif reminder.recurrance_type == "Y":
+                # The same day on the next year is non-constant seconds away.
+                # Let time library handle the calculations. Simply add a year.
                 next_occurance_time.year += 1
-                next_occurance_time.month = 0
-        # If the reminder occurs every year, increment by a year
-        # Each year may last a different amount of seconds
-        else:
-            next_occurance_time.year += 1
 
-        # If the next_occurance_time is after expiration_time,
-        # remove the reminder, otherwise update next_occurance_time
-        if next_occurance_time.to_epoch_delta() < reminder.expiration_time:
-            sqlite.run(
-                file_name = FILE_NAME,
-                query = f"UPDATE {TABLE_NAME} SET " \
-                    + "next_occurance_time={next_occurance_time.to_epoch_delta()} " \
-                    + "WHERE reminder_id={reminder.reminder_id}"
-                query_parameters = (),
-                commit = True
-            )
-        else:
-            sqlite.run(
-                file_name = FILE_NAME,
-                query = f"DELETE FROM {TABLE_NAME} WHERE"\
-                    + f"reminder_id={reminder.reminder_id}"
-                query_parameters = (),
-                commit = True
-            )
+            # If the reminder is set to never occur again, or the next
+            # next_occurance_time is after expiration_time,
+            # remove the reminder, otherwise update next_occurance_time
+            if reminder.recurrance_type == "N" or
+                next_occurance_time.to_epoch_delta() >= \
+                reminder.expiration_time:
+                # Stop the loop
+                reminder_is_deleted = True
+                # Update table
+                if reminder.delete(reminder.reminder_id) is False:
+                    print("WARNING: There was an error deleting reminder " \
+                        + f"{reminder.reminder_id}")
+            else:
+                # Execute SQL query
+                # (that's faster and more specific faster than reminder.save())
+                write_status = sqlite.run(
+                    file_name = FILE_NAME,
+                    query = f"UPDATE {TABLE_NAME} SET next_occurance_time=" \
+                        + "{next_occurance_time.to_epoch_delta()} " \
+                        + "WHERE reminder_id={reminder.reminder_id}"
+                    query_parameters = (),
+                    commit = True
+                )
+
+                # Check query status
+                if write_status.success == False:
+                    print("WARNING: There was an error updating the " \
+                        + "next_occrance_time of the reminder " \
+                        + f"{reminder.reminder_id}")

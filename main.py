@@ -104,11 +104,12 @@ async def on_ready():
         file_name="reminders",
         table_name_list=["outstanding_reminders"],
         column_name_list=[
+            "reminder_id INTEGER NOT NULL PRIMARY KEY",
             "author_user_id INTEGER NOT NULL",
             "channel_id INTEGER NOT NULL",
             "recurrance_type TEXT NOT NULL",
-            "start INTEGER NOT NULL",
-            "end INTEGER NOT NULL",
+            "next_occurance_time INTEGER NOT NULL",
+            "expiration_time INTEGER NOT NULL",
             "content TEXT"
         ]
     )
