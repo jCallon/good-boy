@@ -23,6 +23,7 @@ from discord_slash_commands import voice
 from discord_slash_commands import tts
 from discord_slash_commands import permissions
 from discord_slash_commands import state
+from discord_slash_commands import reminder
 
 # Import helper for interacting with internal database
 from discord_slash_commands.helpers import sqlite
@@ -49,6 +50,7 @@ discord_bot.add_application_command(voice.voice_slash_command_group)
 discord_bot.add_application_command(tts.tts_slash_command_group)
 discord_bot.add_application_command(permissions.permissions_slash_command_group)
 discord_bot.add_application_command(state.state_slash_command_group)
+discord_bot.add_application_command(reminder.reminder_slash_command_group)
 
 
 
@@ -103,7 +105,7 @@ async def on_ready():
     sqlite.add_connection(
         file_name="reminders",
         table_name_list=["outstanding_reminders"],
-        column_name_list=[
+        column_list=[
             "reminder_id INTEGER NOT NULL PRIMARY KEY",
             "author_user_id INTEGER NOT NULL",
             "channel_id INTEGER NOT NULL",

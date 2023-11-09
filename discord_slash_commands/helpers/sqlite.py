@@ -9,6 +9,9 @@ owner's disk.
 # Import libraries                                                             #
 #==============================================================================#
 
+# Import API for keeping track of time
+import time
+
 # Import API for using SQLite
 import sqlite3
 

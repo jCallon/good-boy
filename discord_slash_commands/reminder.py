@@ -126,7 +126,7 @@ class Reminder():
             isinstance(self.next_occurance_time, int) and \
             isinstance(self.expiration_time, int) and \
             isinstance(self.content, str) and \
-            self.recurrance_type is in ("N", "D", "W", "M", "Y") and \
+            self.recurrance_type in ("N", "D", "W", "M", "Y") and \
             self.next_occurance_time >= 0 and \
             self.next_occurance_time <= 4294967295 and \
             self.expiration_time >= 0 and \
@@ -154,8 +154,8 @@ class Reminder():
                 +     f"channel_id={self.channel_id}," \
                 +     "recurrance_type=?," \
                 +     f"next_occurrance_time={self.next_occurance_time}," \
-                +     f"expiration_time={self.expiration_time}" \
-                +     "content=?," \
+                +     f"expiration_time={self.expiration_time}," \
+                +     "content=?",
             query_parameters = (
                 self.recurrance_type,
                 self.content,
@@ -183,7 +183,7 @@ class Reminder():
             exist.
         """
         # Check safety of parameters
-        if not isinstance(reminder_id, int)):
+        if not isinstance(reminder_id, int):
             return False
 
         # Execute SQL query
@@ -218,14 +218,14 @@ class Reminder():
             TODO.
         """
         # Check safety of parameters
-        if not isinstance(reminder_id, int)):
+        if not isinstance(reminder_id, int):
             return False
 
         # Execute SQL query
         return sqlite.run(
             file_name = FILE_NAME,
             query = f"DELETE FROM {TABLE_NAME} WHERE reminder_id="\
-                + f"{reminder.reminder_id}"
+                + f"{reminder.reminder_id}",
             query_parameters = (),
             commit = True
         ).success
@@ -301,7 +301,7 @@ async def reminder_add(
         start.from_string(start_time)
         end.from_string(end_time)
     except:
-        err_msg += "Invalid format for start_time or end_time. "
+        err_msg += "Invalid format for start_time or end_time." \
             + "\nPlease use the format YYYYMMMDD HH:MM, where Y represent " \
             + "year, M represents month, D represents day, H represents " \
             + "hour, and M represents minute. " \
@@ -354,7 +354,7 @@ async def reminder_add(
     # TODO: does this only work for auto-increment?
     sqlite_repsonse = sqlite.run(
         file_name = FILE_NAME,
-        query = "SELECT last_insert_rowid()"
+        query = "SELECT last_insert_rowid()",
         query_parameters = (),
         commit = False
     )
@@ -427,7 +427,7 @@ async def reminder_remove(
     if err_msg != "":
         err_msg += "\nHere's an example command." \
             + "\nRemove my reminder to pick up John." \
-            + "\n`/reminder remove reminder_id: 51026717826`." \
+            + "\n`/reminder remove reminder_id: 51026717826`."
         await ctx.respond(ephemeral=True, content=err_msg)
         return False
 
@@ -456,6 +456,7 @@ async def reminder_modify(
         str,
         description="Which part of the reminder to modify.",
         choices=["repeats", "start_time", "end_time", "content"]
+    ),
     new_value: discord.Option(
         str,
         description="The new value for the field you chose.",
@@ -518,7 +519,7 @@ async def reminder_modify(
         err_msg += "\nHere's an example command." \
             + "\nModify my reminder to pick up John, I mispelled their name." \
             + "\n`/reminder modify reminder_id: 51026717826 field: content " \
-            + "new_value: Pick up Jahn.`." \
+            + "new_value: Pick up Jahn.`."
         await ctx.respond(ephemeral=True, content=err_msg)
         return False
 
@@ -563,7 +564,7 @@ def send_all_outstanding_reminders(bot: discord.Bot) -> None:
     sqlite_response = sqlite.run(
         file_name = FILE_NAME,
         query = f"SELECT * FROM {TABLE_NAME} WHERE"\
-            + f"next_occurance_time<={now.to_epoch_delta()}"
+            + f"next_occurance_time<={now.to_epoch_delta()}",
         query_parameters = (),
         commit = False
     )
@@ -638,9 +639,9 @@ def send_all_outstanding_reminders(bot: discord.Bot) -> None:
             # If the reminder is set to never occur again, or the next
             # next_occurance_time is after expiration_time,
             # remove the reminder, otherwise update next_occurance_time
-            if reminder.recurrance_type == "N" or
+            if reminder.recurrance_type == "N" or \
                 next_occurance_time.to_epoch_delta() >= \
-                reminder.expiration_time:
+                    reminder.expiration_time:
                 # Stop the loop
                 reminder_is_deleted = True
                 # Update table
@@ -654,7 +655,7 @@ def send_all_outstanding_reminders(bot: discord.Bot) -> None:
                     file_name = FILE_NAME,
                     query = f"UPDATE {TABLE_NAME} SET next_occurance_time=" \
                         + "{next_occurance_time.to_epoch_delta()} " \
-                        + "WHERE reminder_id={reminder.reminder_id}"
+                        + "WHERE reminder_id={reminder.reminder_id}",
                     query_parameters = (),
                     commit = True
                 )
