@@ -20,6 +20,9 @@ import discord
 # Import functions for asserting bot state
 import discord_slash_commands.helpers.application_context_checks as ctx_check
 
+# Import user permissions for each guild
+import discord_slash_commands.helpers.user_permission as user_perm
+
 # Import helper for interacting with internal database
 from discord_slash_commands.helpers import sqlite
 
@@ -92,7 +95,7 @@ class Reminder():
         self.expiration_time = expiration_time
         self.content = content
 
-    def from_tuple(source: tuple):
+    def from_tuple(self, source: tuple):
         """TODO.
 
         TODO.
@@ -145,11 +148,14 @@ class Reminder():
         # Execute SQL query
         # If no reminder_id is specified, SQLite will automatically generate a
         # unique reminder_id, see https://www.sqlite.org/autoinc.html
+        reminder_id_str = str(self.reminder_id)
+        if self.reminder_id == None:
+            reminder_id_str = "NULL"
         return sqlite.run(
             file_name = FILE_NAME,
             query = f"INSERT INTO {TABLE_NAME} VALUES "\
                 + "(" \
-                +     f"?,"\
+                +     f"{reminder_id_str},"\
                 +     f"{self.author_user_id}," \
                 +     f"{self.channel_id}," \
                 +     f"?," \
@@ -164,7 +170,6 @@ class Reminder():
                 +     f"expiration_time={self.expiration_time}," \
                 +     "content=?",
             query_parameters = (
-                "NULL" if self.reminder_id == None else str(self.reminder_id)
                 self.recurrence_type,
                 self.content,
                 self.recurrence_type,
@@ -197,16 +202,15 @@ class Reminder():
         # Execute SQL query
         status = sqlite.run(
             file_name = FILE_NAME,
-            query = "SELECT author_user_id,channel_id,recurrence_type," \
-                "next_occurrence_time,expiration_time,content FROM" \
-                + f"{TABLE_NAME} WHERE reminder_id={reminder_id}",
+            query = f"SELECT * FROM {TABLE_NAME} WHERE reminder_id=" \
+                + f"{reminder_id}",
             query_parameters = (),
             commit = False
         )
 
         # If there was no match, return failure and don't change this
         # Reminder's members
-        if status.success is False:
+        if status.success is False or status.result == []:
             return False
 
         # There was a match, overwrite this Reminder's members with values from
@@ -233,7 +237,7 @@ class Reminder():
         return sqlite.run(
             file_name = FILE_NAME,
             query = f"DELETE FROM {TABLE_NAME} WHERE reminder_id="\
-                + f"{reminder.reminder_id}",
+                + f"{self.reminder_id}",
             query_parameters = (),
             commit = True
         ).success
@@ -369,6 +373,11 @@ async def reminder_add(
     reminder_id = sqlite_response.result[0][0]
 
     # Tell author their reminder was created, other details
+    # Ephemeral messages can delete themselves, ctx.respond() shows what the
+    # author typed, and users may disable DMs, so for getting the reminder ID
+    # somewhere persistent, channel.send() is the best bet.
+    await ctx.channel.send(f"Created reminder for <@{ctx.author.id}> with " \
+        + f"reminder ID: {reminder_id}.")
     await ctx.respond(
         ephemeral=True,
         content="Created a reminder for you." \
@@ -376,10 +385,12 @@ async def reminder_add(
             + "\nPlease keep in mind, I will @mention you each time this " \
             + "reminder occurs, and send the reminder via a public message " \
             + "this channel." \
+            + "\nWhen this reminder is deleted, its ID may be reused." \
             + "\nThe only people that can see the contents of this reminder " \
-            + "are you and the bot owner until it triggers." \
+            + "are you and the bot owner until it triggers or is deleted." \
             + "\nPlease delete/modify this reminder if that doesn't sit well " \
             + "with you." \
+            + "\nDiscord may delete this message next time you close it."
             + "\n" \
             + f"\nReminder ID: {reminder_id}" \
             + f"\nRepeats: {repeats}" \
