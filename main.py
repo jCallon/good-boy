@@ -109,8 +109,8 @@ async def on_ready():
             "reminder_id INTEGER NOT NULL PRIMARY KEY",
             "author_user_id INTEGER NOT NULL",
             "channel_id INTEGER NOT NULL",
-            "recurrance_type TEXT NOT NULL",
-            "next_occurance_time INTEGER NOT NULL",
+            "recurrence_type TEXT NOT NULL",
+            "next_occurrence_time INTEGER NOT NULL",
             "expiration_time INTEGER NOT NULL",
             "content TEXT"
         ]

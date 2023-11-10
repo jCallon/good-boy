@@ -8,6 +8,12 @@ reminder, that may trigger once or multiple times later in guild or DM channel.
 # Import libraries                                                             #
 #==============================================================================#
 
+# Import API for keeping track of time
+import time
+
+# Import API for keeping track of changes in time
+import datetime
+
 # Import Discord Python API
 import discord
 
@@ -43,9 +49,9 @@ class Reminder():
         channel_id: The ID of the Discord channel where this reminder was
             issued. For knowing where to put the message containing the
             reminder. For example: 49012672219.
-        recurrance_type: Whether this this reminder should trigger again
+        recurrence_type: Whether this this reminder should trigger again
             (N)ever, (D)aily, (M)onthly, or (Y)early. For example: "N".
-        next_occurance_time: The time this reminder should next be sent
+        next_occurrence_time: The time this reminder should next be sent
             out. Measured in seconds since the last epoch. For exmaple: 1000.
         expiration_time: The time after which this reminder should expire and
             never occur again. Measured in seconds since the last epoch. For
@@ -58,8 +64,8 @@ class Reminder():
         reminder_id: int = 0,
         author_user_id: int = 0,
         channel_id: int = 0,
-        recurrance_type: str = "N",
-        next_occurrance_time: int = 0,
+        recurrence_type: str = "N",
+        next_occurrence_time: int = 0,
         expiration_time: int = 0,
         content: str = ""
     ):
@@ -72,16 +78,17 @@ class Reminder():
             reminder_id: What to initialize self.reminder_id as
             author_user_id: What to initialize self.author_user_id as
             channel_id: What to initialize self.channel_id as
-            recurrance_type: What to initialize self.recurrance_type as
-            next_occurance_time: What to initialize self.next_occurance_time as
-            expiration_time: What to initialize self.expiration_time as
+            recurrence_type: What to initialize self.recurrence_type as
+            next_occurrence_time: What to initialize self.next_occurrence_time
+                as
+            expiration_time: What sto initialize self.expiration_time as
             content: What to initialize self.content as
         """
         self.reminder_id = reminder_id
         self.author_user_id = author_user_id
         self.channel_id = channel_id
-        self.recurrance_type = recurrance_type
-        self.next_occurance_time = next_occurance_time
+        self.recurrence_type = recurrence_type
+        self.next_occurrence_time = next_occurrence_time
         self.expiration_time = expiration_time
         self.content = content
 
@@ -96,8 +103,8 @@ class Reminder():
         self.reminder_id = source[0]
         self.author_user_id = source[1]
         self.channel_id = source[2]
-        self.recurrance_type = source[3]
-        self.next_occurance_time = source[4]
+        self.recurrence_type = source[3]
+        self.next_occurrence_time = source[4]
         self.expiration_time = source[5]
         self.content = source[6]
 
@@ -119,19 +126,19 @@ class Reminder():
         # Check safety of parameters
         if not (
             (isinstance(self.reminder_id, int) or \
-                isinstance(self.reminder_id, None)) and \
+                (self.reminder_id == None)) and \
             isinstance(self.author_user_id, int) and \
             isinstance(self.channel_id, int) and \
-            isinstance(self.recurrance_type, str) and \
-            isinstance(self.next_occurance_time, int) and \
+            isinstance(self.recurrence_type, str) and \
+            isinstance(self.next_occurrence_time, int) and \
             isinstance(self.expiration_time, int) and \
             isinstance(self.content, str) and \
-            self.recurrance_type in ("N", "D", "W", "M", "Y") and \
-            self.next_occurance_time >= 0 and \
-            self.next_occurance_time <= 4294967295 and \
+            self.recurrence_type in ("N", "D", "W", "M", "Y") and \
+            self.next_occurrence_time >= 0 and \
+            self.next_occurrence_time <= 4294967295 and \
             self.expiration_time >= 0 and \
             self.expiration_time <= 4294967295 and \
-            len(self.content <= 200)
+            len(self.content) <= 200
         ):
             return False
 
@@ -142,24 +149,25 @@ class Reminder():
             file_name = FILE_NAME,
             query = f"INSERT INTO {TABLE_NAME} VALUES "\
                 + "(" \
-                +     f"{'NULL' if reminder_id is None else self.reminder_id},"\
+                +     f"?,"\
                 +     f"{self.author_user_id}," \
                 +     f"{self.channel_id}," \
-                +     "?," \
-                +     f"{self.next_occurance_time}," \
-                +     f"{self.expiration_time}" \
-                +     "?," \
+                +     f"?," \
+                +     f"{self.next_occurrence_time}," \
+                +     f"{self.expiration_time}," \
+                +     "?" \
                 + ") ON CONFLICT(reminder_id) DO UPDATE SET " \
                 +     f"author_user_id={self.author_user_id}," \
                 +     f"channel_id={self.channel_id}," \
-                +     "recurrance_type=?," \
-                +     f"next_occurrance_time={self.next_occurance_time}," \
+                +     f"recurrence_type=?," \
+                +     f"next_occurrence_time={self.next_occurrence_time}," \
                 +     f"expiration_time={self.expiration_time}," \
                 +     "content=?",
             query_parameters = (
-                self.recurrance_type,
+                "NULL" if self.reminder_id == None else str(self.reminder_id)
+                self.recurrence_type,
                 self.content,
-                self.recurrance_type,
+                self.recurrence_type,
                 self.content
             ),
             commit = True
@@ -189,8 +197,8 @@ class Reminder():
         # Execute SQL query
         status = sqlite.run(
             file_name = FILE_NAME,
-            query = "SELECT author_user_id,channel_id,recurrance_type," \
-                "next_occurance_time,expiration_time,content FROM" \
+            query = "SELECT author_user_id,channel_id,recurrence_type," \
+                "next_occurrence_time,expiration_time,content FROM" \
                 + f"{TABLE_NAME} WHERE reminder_id={reminder_id}",
             query_parameters = (),
             commit = False
@@ -262,14 +270,14 @@ async def reminder_add(
     ),
     start_time: discord.Option(
         str,
-        description="When to first remind. {BOT_OWNER_TIMEZONE}. " \
-            + "Format: YYYYMMMDD HH:MM.",
+        description=f"When to first remind. {BOT_OWNER_TIMEZONE}. " \
+            + "Ex: 2023NOV09 17:00.",
         max_length=len("YYYYMMMDD HH:MM")
     ),
     end_time: discord.Option(
         str,
-        description="When to stop reminder. {BOT_OWNER_TIMEZONE}. " \
-            + "Format: YYYYMMMDD HH:MM.",
+        description=f"When to stop reminder. {BOT_OWNER_TIMEZONE}. " \
+            + "Ex: 2023NOV10 17:00.",
         max_length=len("YYYYMMMDD HH:MM")
     ),
     content: discord.Option(
@@ -294,34 +302,28 @@ async def reminder_add(
     """
     # Determine if the author's arguments are valid
     err_msg = ""
-    start = sqlite.SQLTime()
-    end = sqlite.SQLTime()
-
+    start = None
+    end = None
     try:
-        start.from_string(start_time)
-        end.from_string(end_time)
+        start = time.strptime(start_time, "%Y%b%d %H:%M")
+        end = time.strptime(end_time, "%Y%b%d %H:%M")
+        now = time.localtime()
+        if time.mktime(now) > time.mktime(start):
+            err_msg += "\nPlease use a start_time later than the current time."
+        if time.mktime(start) > time.mktime(end):
+            err_msg += "\nPlease use an end_time later than the start_time."
     except:
         err_msg += "Invalid format for start_time or end_time." \
-            + "\nPlease use the format YYYYMMMDD HH:MM, where Y represent " \
-            + "year, M represents month, D represents day, H represents " \
-            + "hour, and M represents minute. " \
-            + "\nFor example, January 1st 2020 at 5:21 PM would be 2020JAN01 " \
-            + "17:21."
-
-    now = sqlite.SQLTime()
-    now.from_struct_time()
-    if now.to_epoch_delta() > start.to_epoch_delta():
-        err_msg += "\nPlease use a start_time later than the current time."
-    if start.to_epoch_delta() > end.to_epoch_delta():
-        err_msg += "\nPlease use an end_time later than the start_time."
+            + "\nPlease use the format YYYYMMMDD HH:MM ((Y)ear, abbreviated " \
+            + "(M)onth name, (D)ay, (H)our, (M)inute)."
 
     # If the author's arguments were invalid,
     # give them verbose error messages and an example to help them
     if err_msg != "":
         err_msg += "\nHere's an example command." \
             + "\nRemind me to pick up John the next 2 weeks." \
-            + "\n`/reminder add repeats: never start_time: 2023NOV08 14:00 " \
-            + "end_time: 2023NOV20 14:00 content: Pick up John.`"
+            + "\n`/reminder add repeats: weekly start_time: 2023NOV09 17:00 "\
+            + "end_time: 2023NOV16 17:00 content: Pick up John.`"
         await ctx.respond(ephemeral=True, content=err_msg)
         return False
 
@@ -333,9 +335,9 @@ async def reminder_add(
         reminder_id = None,
         author_user_id = ctx.author.id,
         channel_id = ctx.channel.id,
-        recurrance_type = repeats[0].upper(),
-        next_occurrance_time = start.to_epoch_delta(),
-        expiration_time = end.to_epoch_delta(),
+        recurrence_type = repeats[0].upper(),
+        next_occurrence_time = int(time.mktime(start)),
+        expiration_time = int(time.mktime(end)),
         content = content
     )
 
@@ -343,16 +345,15 @@ async def reminder_add(
     if reminder.save() is False:
         await ctx.respond(
             ephemeral=True,
-            content="An internal issue ocurred creating a new reminder for you."
+            content="Encountered internal issue creating new reminder for you."
         )
         return True
         
-
     # Get its auto-generated ROWID
     # ... see stackoverflow:
     # how-to-retrieve-the-last-autoincremented-id-from-a-sqlite-table
     # TODO: does this only work for auto-increment?
-    sqlite_repsonse = sqlite.run(
+    sqlite_response = sqlite.run(
         file_name = FILE_NAME,
         query = "SELECT last_insert_rowid()",
         query_parameters = (),
@@ -365,20 +366,22 @@ async def reminder_add(
                 + "issue getting the ID of your new reminder for you."
         )
         return True
-    reminder.reminder_id = sqlite_response.result[0]
+    reminder_id = sqlite_response.result[0][0]
 
     # Tell author their reminder was created, other details
     await ctx.respond(
         ephemeral=True,
         content="Created a reminder for you." \
-            + "\nPlease keep in mind, it will @mention you each time it " \
-            + "occurs, and will remind you via a public message in this " \
-            + "channel. The only people that can see the contents of the " \
-            + "reminder are you and the bot owner until it is printed (" \
-            + "the data to make the reminder actually work needs to be " \
-            + "stored somewhere!). Please delete/modify this reminder if " \
-            + "that does not sit well with you." \
-            + f"\nReminder ID: {reminder.id}" \
+            + "\n" \
+            + "\nPlease keep in mind, I will @mention you each time this " \
+            + "reminder occurs, and send the reminder via a public message " \
+            + "this channel." \
+            + "\nThe only people that can see the contents of this reminder " \
+            + "are you and the bot owner until it triggers." \
+            + "\nPlease delete/modify this reminder if that doesn't sit well " \
+            + "with you." \
+            + "\n" \
+            + f"\nReminder ID: {reminder_id}" \
             + f"\nRepeats: {repeats}" \
             + f"\nStarts: {start_time}" \
             + f"\nEnds: {end_time}" \
@@ -427,17 +430,23 @@ async def reminder_remove(
     if err_msg != "":
         err_msg += "\nHere's an example command." \
             + "\nRemove my reminder to pick up John." \
-            + "\n`/reminder remove reminder_id: 51026717826`."
+            + "\n`/reminder remove reminder_id: 5`."
         await ctx.respond(ephemeral=True, content=err_msg)
         return False
 
     # If we got here, the arguments are valid and safe to act upon
     # Delete this reminder
-    reminder.delete(reminder_id)
-    await ctx.respond(
-        ephemeral=True,
-        content=f"Deleted reminder {reminder_id}."
-    )
+    if reminder.delete(reminder_id) is False:
+        await ctx.respond(
+            ephemeral=True,
+            content="Encountered internal issue deleting reminder " \
+                + "{reminder_id} for you."
+        )
+    else:
+        await ctx.respond(
+            ephemeral=True,
+            content=f"Deleted reminder {reminder_id}."
+        )
     return True
 
 
@@ -488,28 +497,26 @@ async def reminder_modify(
 
     if field == "repeats":
         if new_value in ("never", "daily", "weekly", "monthly", "yearly"):
-            reminder.recurrance_type = new_value[0].upper()
+            reminder.recurrence_type = new_value[0].upper()
         else:
             err_msg += "\nFor 'repeats', new_value must be either never, " \
                 + "daily, weekly, monthly, or yearly."
     elif field in ("start_time", "end_time"):
-        new_time = SQLTime()
         try:
-            new_time.from_str(new_value)
+            new_time = time.ascstr(new_value)
             if field == "start_time":
-                # TODO: should be less than or equal to 
-                #       reminder.expiration_time, greater than current time
-                reminder.next_occurance_time = new_time.to_epoch_delta()
+                if time.time(new_time) > reminder.expiration_time or \
+                    time.time(new_time) < time.time(time.localtime()):
+                    raise ValueError
+                reminder.next_occurrence_time = new_time.to_epoch_delta()
             elif field == "end_time":
-                # TODO: should be greater than or equal to 
-                #       reminder.next_occurance_time, greater than current time
+                if time.time(new_time) < reminder.next_occurrence_time or \
+                    time.time(new_time) < time.time(time.localtime()):
+                    raise ValueError
                 reminder.expiration_time = new_time.to_epoch_delta()
         except:
             err_msg += "\nFor 'start_time' or 'end_time', new_value follow " \
-                + "the format YYYYMMMDD HH:MM, where Y = year, M = month, " \
-                + "D = day, H = hour, and M = minute." \
-                + "\nFor example, January 1st 2020 at 5:21 PM would be " \
-                + "2020JAN01 17:21."
+                + "the format shown previously when creating it."
     elif field == "content":
         reminder.content = content
 
@@ -530,41 +537,39 @@ async def reminder_modify(
             ephemeral=True,
             content=f"There was an internal error saving your modifications."
         )
-        return True
-
-    await ctx.respond(
-        ephemeral=True,
-        content=f"Changed {field} for reminder {reminder_id} to {new_value}."
-    )
+    else:
+        await ctx.respond(
+            ephemeral=True,
+            content=f"Changed {field} of reminder {reminder_id} to {new_value}."
+        )
     return True
 
 
 
 # TODO: run this in cog in main.py that runs every minute
-def send_all_outstanding_reminders(bot: discord.Bot) -> None:
+async def send_all_outstanding_reminders(bot: discord.Bot) -> None:
     """Send all outstanding reminders in the channels they were created in.
 
-    Get all reminders with next_occurance_time greater than the current epoch
-    delta. For each, while their next_occurance_time is still greater than the
+    Get all reminders with next_occurrence_time greater than the current epoch
+    delta. For each, while their next_occurrence_time is still greater than the
     current epoch delta, send an @mention to their original author, with
     reminder_id and content, in the channel matching channel_id. Calculate the
-    next next_occurance_time based on recurrance_type. If the next 
-    next_occurance_time would be greater than expiration_time, or the reminder
+    next next_occurrence_time based on recurrence_type. If the next 
+    next_occurrence_time would be greater than expiration_time, or the reminder
     is set to never reoccur, remove it from the database. Otherwise update its
-    database entry with the new next_occurance_time.
+    database entry with the new next_occurrence_time.
 
     Args:
         bot: A bot context to use to get the matching channel for channel_id
     """
     # Get current time
-    now = SQLTime()
-    now.from_struct_time()
+    now = time.localtime()
 
     # Get all reminders that must be dispatched
     sqlite_response = sqlite.run(
         file_name = FILE_NAME,
         query = f"SELECT * FROM {TABLE_NAME} WHERE"\
-            + f"next_occurance_time<={now.to_epoch_delta()}",
+            + f"next_occurrence_time<={time.time(now)}",
         query_parameters = (),
         commit = False
     )
@@ -583,13 +588,23 @@ def send_all_outstanding_reminders(bot: discord.Bot) -> None:
         # Set variable for terminating following while loop early if needed
         reminder_is_deleted = False
 
-        # Until the reminder is deleted or its next_occurance time is greater
+        # Until the reminder is deleted or its next_occurrence time is greater
         # than the current time...
-        while result.next_occurance_time < now.to_epoch_delta and \
+        while result.next_occurrence_time < now.to_epoch_delta and \
             reminder_is_deleted is False:
-            # Convert reminder.next_occurance_time to SQLTime
-            next_occurance_time = SQLTime()
-            next_occurance_time.from_epoch_delta(reminder.next_occurance_time)
+            # Convert reminder.next_occurrence_time to other formats
+            next_time = reminder.next_occurrence_time
+            next_time_struct = time.localtime(next_time)
+            next_date_time = datetime.datetime(
+                year = next_time_struct.tm_year,
+                month = next_time_struct.tm_month,
+                day = next_time_struct.tm_day,
+                hour = next_time_struct.tm_hour,
+                minute = next_time_struct.tm_minute,
+                second = 0,
+                microsecond = 0,
+                tzinfo = TODO
+            )
 
             # Send outstanding reminder if possible
             channel = bot.get_channel(reminder.channel_id)
@@ -597,10 +612,10 @@ def send_all_outstanding_reminders(bot: discord.Bot) -> None:
                 print(f"WARNING: reminder {reminder.reminder_id}'s channel " \
                     + "couldn't be found, so its overdue reminder wasn't sent.")
             else:
-                channel.send(
+                await channel.send(
                     ephemeral=False,
                     content=f"<@{reminder.author_user_id}>, I have a " \
-                        + "reminder for {next_occurance_time.to_string()} "
+                        + "reminder for {time.ctime(next_time)} "
                         + "for you." \
                         + f"\nReminder ID: {reminder.reminder_id}."
                         + f"\n{reminder.content}"
@@ -610,38 +625,31 @@ def send_all_outstanding_reminders(bot: discord.Bot) -> None:
             if reminder.reccurance_type == "D":
                 # The next day in seconds is...
                 # 24 hours/day * 60 minutes/hour * 60 seconds/minute
-                next_occurance_time.from_epoch_delta(
-                    next_occurance_time.to_epoch_delta() + (24 * 60 * 60)
-                )
+                next_time += (24 * 60 * 60)
             # If the reminder occurs every week...
-            elif reminder.recurrance_type == "W":
+            elif reminder.recurrence_type == "W":
                 # The next week in seconds is...
                 # 7 days/week * 24 hours/day * 60 minutes/hour * 
                 # 60 seconds/minute
-                next_occurance_time.from_epoch_delta(
-                    next_occurance_time.to_epoch_delta() + (7 * 24 * 60 * 60)
-                )
+                next_time += (7 * 24 * 60 * 60)
             # If the reminder occurs every month...
-            elif reminder.recurrance_type == "M":
+            elif reminder.recurrence_type == "M":
                 # The same day on the next month is non-constant seconds away.
-                # Let time library handle the calculations. Simply add a month,
-                # if it would overflow, and a year and wrap around.
-                next_occurance_time.month += 1
-                if next_occurance_time > 12:
-                    next_occurance_time.year += 1
-                    next_occurance_time.month = 1
+                # Let datetime library handle the calculations.
+                next_date_time = next_date_time + relativedelta(months=+1)
+                next_time = next_date_time.timestamp()
             # If the reminder occurs every month...
-            elif reminder.recurrance_type == "Y":
+            elif reminder.recurrence_type == "Y":
                 # The same day on the next year is non-constant seconds away.
-                # Let time library handle the calculations. Simply add a year.
-                next_occurance_time.year += 1
+                # Let datetime library handle the calculations.
+                next_date_time = next_date_time + relativedelta(years=+1)
+                next_time = next_date_time.timestamp()
 
-            # If the reminder is set to never occur again, or the next
-            # next_occurance_time is after expiration_time,
-            # remove the reminder, otherwise update next_occurance_time
-            if reminder.recurrance_type == "N" or \
-                next_occurance_time.to_epoch_delta() >= \
-                    reminder.expiration_time:
+            # If the reminder is set to never occur again, or the next next_time
+            # is after expiration_time, remove the reminder, otherwise update
+            # next_occurrence_time to next_time
+            if reminder.recurrence_type == "N" or \
+                next_time >= reminder.expiration_time:
                 # Stop the loop
                 reminder_is_deleted = True
                 # Update table
@@ -653,9 +661,9 @@ def send_all_outstanding_reminders(bot: discord.Bot) -> None:
                 # (that's faster and more specific faster than reminder.save())
                 write_status = sqlite.run(
                     file_name = FILE_NAME,
-                    query = f"UPDATE {TABLE_NAME} SET next_occurance_time=" \
-                        + "{next_occurance_time.to_epoch_delta()} " \
-                        + "WHERE reminder_id={reminder.reminder_id}",
+                    query = f"UPDATE {TABLE_NAME} SET next_occurrence_time=" \
+                        + f"{next_time} WHERE reminder_id=" \
+                        + f"{reminder.reminder_id}",
                     query_parameters = (),
                     commit = True
                 )
@@ -664,4 +672,4 @@ def send_all_outstanding_reminders(bot: discord.Bot) -> None:
                 if write_status.success == False:
                     print("WARNING: There was an error updating the " \
                         + "next_occrance_time of the reminder " \
-                        + f"{reminder.reminder_id}")
+                        + f"{reminder.reminder_id}.")
