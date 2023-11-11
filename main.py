@@ -120,6 +120,9 @@ async def on_ready():
     # and ready to run commands
     print(f"{discord_bot.user} is ready and online!")
 
+    # TODO: comment
+    discord_bot.add_cog(reminder.ReminderCog(bot=discord_bot))
+
 
 
 @discord_bot.event
@@ -156,8 +159,6 @@ async def on_application_command_error(
 #==============================================================================#
 # Run Discord bot                                                              #
 #==============================================================================#
-
-
 
 # Get bot token from environment variables
 BOT_TOKEN = str(os.getenv("TOKEN"))
