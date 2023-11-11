@@ -17,6 +17,9 @@ import datetime
 # Import Discord Python API
 import discord
 
+# TODO
+from discord.ext import pages
+
 # Import functions for asserting bot state
 import discord_slash_commands.helpers.application_context_checks as ctx_check
 
@@ -32,6 +35,26 @@ from discord_slash_commands.helpers import sqlite
 
 FILE_NAME = "reminders"
 TABLE_NAME = "outstanding_reminders"
+TIME_FORMAT = "%Y%b%d %H:%M"
+
+
+
+def get_guild_for_channel_id(
+    bot: discord.Bot,
+    channel_id: int
+):
+    """TODO.
+
+    TODO.
+
+    Args:
+        TODO
+    """
+    channel = bot.get_channel(channel_id)
+    if isinstance(channel, discord.abc.GuildChannel) or \
+        isinstance(channel, discord.abc.Thread):
+        return channel.guild
+    return None
 
 
 
@@ -95,13 +118,14 @@ class Reminder():
         self.expiration_time = expiration_time
         self.content = content
 
-    def from_tuple(self, source: tuple):
-        """TODO.
+    def from_tuple(self, source: tuple) -> None:
+        """Read the elements of a tuple into this Reminder.
 
-        TODO.
+        Overwrite the members of this Reminder with the elements of source.
 
         Args:
-            TODO
+            self: This Reminder
+            source: The tuple to read from
         """
         self.reminder_id = source[0]
         self.author_user_id = source[1]
@@ -111,7 +135,56 @@ class Reminder():
         self.expiration_time = source[5]
         self.content = source[6]
 
-    def save(self) -> bool:
+    def to_str(self, bot: discord.Bot) -> str:
+        """Convert the data in this Reminder to an human-readable string.
+
+        Make a string including each member of this Reminder, formatted in an
+        easy, human-readable way.
+
+        Args:
+            self: This Reminder
+            bot: A bot instance to use to be able to search for channels
+
+        Returns:
+            A string representing this Reminder.
+        """
+        string = f"Reminder ID: `{self.reminder_id}`"
+
+        string += f"\nAuthor: <@{self.author_user_id}>"
+
+        string += "\nChannel: "
+        channel = bot.get_channel(self.channel_id)
+        guild = get_guild_for_channel_id(bot, self.channel_id)
+        if guild != None:
+            string += f"`#{channel.name}` in Guild `{channel.guild.name}`"
+        elif (isinstance(channel, discord.abc.PrivateChannel)):
+            string += f"Private channel, ID `{self.channel_id}`"
+        else:
+            string += f"Unknown channel, ID `{self.channel_id}`"
+
+        string += "\nRepeats: `"
+        recurrance_type_to_str_dict = {
+            "N" : "never",
+            "D" : "daily",
+            "W" : "weekly",
+            "M" : "monthly",
+            "Y" : "yearly",
+        }
+        string += recurrance_type_to_str_dict[self.recurrence_type]
+
+        string += "`\nNext occurs: `"
+        struct_time = time.localtime(float(self.next_occurrence_time))
+        string += f"{time.strftime(TIME_FORMAT, struct_time)}"
+
+        string += "`\nExpires: `"
+        struct_time = time.localtime(float(self.expiration_time))
+        string += f"{time.strftime(TIME_FORMAT, struct_time)}"
+
+        string += f"`\nContent: `{self.content}`"
+
+        return string 
+
+    def save(self, save_as_new_reminder: bool = False) -> bool:
         """Save this Reminder instance into the database.
 
         Insert this Reminder into the reminder database. If a Reminder with
@@ -120,6 +193,8 @@ class Reminder():
 
         Args:
             self: This Reminder
+            save_as_new_reminder: Whether to add a new row to the database for
+                this save, or try to overwrite an existing row.
 
         Returns:
             Whether the operation was successful. It may not be, for example,
@@ -128,8 +203,7 @@ class Reminder():
         """
         # Check safety of parameters
         if not (
-            (isinstance(self.reminder_id, int) or \
-                (self.reminder_id == None)) and \
+            isinstance(self.reminder_id, int) or \
             isinstance(self.author_user_id, int) and \
             isinstance(self.channel_id, int) and \
             isinstance(self.recurrence_type, str) and \
@@ -148,14 +222,11 @@ class Reminder():
         # Execute SQL query
         # If no reminder_id is specified, SQLite will automatically generate a
         # unique reminder_id, see https://www.sqlite.org/autoinc.html
-        reminder_id_str = str(self.reminder_id)
-        if self.reminder_id == None:
-            reminder_id_str = "NULL"
         return sqlite.run(
             file_name = FILE_NAME,
             query = f"INSERT INTO {TABLE_NAME} VALUES "\
                 + "(" \
-                +     f"{reminder_id_str},"\
+                +     f"{'NULL' if save_as_new_reminder else reminder_id},"\
                 +     f"{self.author_user_id}," \
                 +     f"{self.channel_id}," \
                 +     f"?," \
@@ -183,7 +254,7 @@ class Reminder():
 
         Try to find the row in the table outstanding_reminders matching
         reminder_id for the reminders database. If it exists, overwrite the 
-        members of this TTSUserPreference with its data entries.
+        members of this Reminder with its data entries.
 
         Args:
             self: This Reminder
@@ -218,16 +289,21 @@ class Reminder():
         self.from_tuple(status.result[0])
         return True
 
-    def delete(self, reminder_id: int):
-        """TODO.
+    def delete(self, reminder_id: int) -> bool:
+        """Delete the Reminder matching reminder_id from the database.
 
-        TODO.
+        Find the row in the database matching reminder_id and delete it in its
+        entirety.
 
         Args:
-            TODO
+            self: This Reminder
+            reminder_id: The unique identifier of the reminder to delete
 
         Returns:
-            TODO.
+            Whether the operation was successful. It may not be, for example,
+            if the connection to the database, or the database itself, is not
+            found or is faulty. Or, a reminder with reminder_id simply does not
+            exist.
         """
         # Check safety of parameters
         if not isinstance(reminder_id, int):
@@ -309,8 +385,8 @@ async def reminder_add(
     start = None
     end = None
     try:
-        start = time.strptime(start_time, "%Y%b%d %H:%M")
-        end = time.strptime(end_time, "%Y%b%d %H:%M")
+        start = time.strptime(start_time, TIME_FORMAT)
+        end = time.strptime(end_time, TIME_FORMAT)
         now = time.localtime()
         if time.mktime(now) > time.mktime(start):
             err_msg += "\nPlease use a start_time later than the current time."
@@ -336,7 +412,7 @@ async def reminder_add(
 
     # Create reminder
     reminder = Reminder(
-        reminder_id = None,
+        reminder_id = 0,
         author_user_id = ctx.author.id,
         channel_id = ctx.channel.id,
         recurrence_type = repeats[0].upper(),
@@ -346,7 +422,7 @@ async def reminder_add(
     )
 
     # Save reminder
-    if reminder.save() is False:
+    if reminder.save(save_as_new_reminder=True) is False:
         await ctx.respond(
             ephemeral=True,
             content="Encountered internal issue creating new reminder for you."
@@ -356,7 +432,6 @@ async def reminder_add(
     # Get its auto-generated ROWID
     # ... see stackoverflow:
     # how-to-retrieve-the-last-autoincremented-id-from-a-sqlite-table
-    # TODO: does this only work for auto-increment?
     sqlite_response = sqlite.run(
         file_name = FILE_NAME,
         query = "SELECT last_insert_rowid()",
@@ -370,14 +445,14 @@ async def reminder_add(
                 + "issue getting the ID of your new reminder for you."
         )
         return True
-    reminder_id = sqlite_response.result[0][0]
+    reminder.reminder_id = sqlite_response.result[0][0]
 
     # Tell author their reminder was created, other details
     # Ephemeral messages can delete themselves, ctx.respond() shows what the
     # author typed, and users may disable DMs, so for getting the reminder ID
     # somewhere persistent, channel.send() is the best bet.
     await ctx.channel.send(f"Created reminder for <@{ctx.author.id}> with " \
-        + f"reminder ID: {reminder_id}.")
+        + f"reminder ID: {reminder.reminder_id}.")
     await ctx.respond(
         ephemeral=True,
         content="Created a reminder for you." \
@@ -392,11 +467,7 @@ async def reminder_add(
             + "with you." \
             + "\nDiscord may delete this message next time you close it."
             + "\n" \
-            + f"\nReminder ID: {reminder_id}" \
-            + f"\nRepeats: {repeats}" \
-            + f"\nStarts: {start_time}" \
-            + f"\nEnds: {end_time}" \
-            + f"\nContent: {content}" \
+            + reminder.to_str(bot=ctx.bot)
     )
     return True
 
@@ -404,7 +475,7 @@ async def reminder_add(
 
 @reminder_slash_command_group.command(
     name="remove",
-    description="Remove a reminder.",
+    description="Remove a reminder."
 )
 async def reminder_remove(
     ctx,
@@ -427,14 +498,12 @@ async def reminder_remove(
     reminder = Reminder()
     user_permission = user_perm.UserPermission(ctx)
     if reminder.read(reminder_id) is False:
-        err_msg += f"Could not find reminder with reminder ID {reminder_id}." \
-            + "\nIt may have been deleted, or you simply typed it wrong. The " \
-            + "reminder_id should be printed when you first make the " \
-            + "reminder and whenever it triggers."
+        err_msg += f"Could not find reminder with reminder ID {reminder_id}."
     elif reminder.author_user_id != ctx.author.id and \
-        user_permission.is_admin is False:
-        err_msg += "\nYou are not allowed to remove this reminder, because " \
-            + "you are not its author nor an admin in this guild."
+        not(user_permission.is_admin and \
+        ctx.guild.id == get_guild_for_channel_id(bot, reminder.channel_id).id):
+        err_msg += "\nOnly the author of a reminder or an admin in the " \
+            "guild it was created for can remove a reminder."
 
     # If the author's arguments were invalid,
     # give them verbose error messages and an example to help them
@@ -453,18 +522,21 @@ async def reminder_remove(
             content="Encountered internal issue deleting reminder " \
                 + "{reminder_id} for you."
         )
-    else:
-        await ctx.respond(
-            ephemeral=True,
-            content=f"Deleted reminder {reminder_id}."
-        )
+        return True
+
+    await ctx.respond(
+        ephemeral=True,
+        content=f"Deleted reminder." \
+            + "\n" \
+            + reminder.to_str(bot=ctx.bot)
+    )
     return True
 
 
 
 @reminder_slash_command_group.command(
     name="modify",
-    description="Modify a reminder.",
+    description="Modify a reminder."
 )
 async def reminder_modify(
     ctx,
@@ -499,10 +571,7 @@ async def reminder_modify(
     reminder = Reminder()
     user_permission = user_perm.UserPermission(ctx)
     if reminder.read(reminder_id) is False:
-        err_msg += f"Could not find reminder with reminder ID {reminder_id}." \
-            + "\nIt may have been deleted, or you simply typed it wrong. The " \
-            + "reminder id should be printed when you first make the " \
-            + "reminder and whenever it triggers."
+        err_msg += f"Could not find reminder with reminder ID {reminder_id}."
     elif reminder.author_user_id != ctx.author.id:
         err_msg += "\nYou may not modify reminders you did not author."
 
@@ -514,20 +583,20 @@ async def reminder_modify(
                 + "daily, weekly, monthly, or yearly."
     elif field in ("start_time", "end_time"):
         try:
-            new_time = time.ascstr(new_value)
+            new_time = time.strptime(new_value, TIME_FORMAT)
+            if time.mktime(new_time) < time.time():
+                raise ValueError
             if field == "start_time":
-                if time.time(new_time) > reminder.expiration_time or \
-                    time.time(new_time) < time.time(time.localtime()):
+                if time.mktime(new_time) > reminder.expiration_time:
                     raise ValueError
-                reminder.next_occurrence_time = new_time.to_epoch_delta()
+                reminder.next_occurrence_time = time.mktime(new_time)
             elif field == "end_time":
-                if time.time(new_time) < reminder.next_occurrence_time or \
-                    time.time(new_time) < time.time(time.localtime()):
+                if time.time(new_time) < reminder.next_occurrence_time:
                     raise ValueError
-                reminder.expiration_time = new_time.to_epoch_delta()
+                reminder.expiration_time = time.mktime(new_time)
         except:
-            err_msg += "\nFor 'start_time' or 'end_time', new_value follow " \
-                + "the format shown previously when creating it."
+            err_msg += "\nFor 'start_time' or 'end_time', new_value should " \
+                "follow the format as when it was created: YYYYMMMDD HH:MM."
     elif field == "content":
         reminder.content = content
 
@@ -536,8 +605,8 @@ async def reminder_modify(
     if err_msg != "":
         err_msg += "\nHere's an example command." \
             + "\nModify my reminder to pick up John, I mispelled their name." \
-            + "\n`/reminder modify reminder_id: 51026717826 field: content " \
-            + "new_value: Pick up Jahn.`."
+            + "\n`/reminder modify reminder_id: 5 field: content new_value: " \
+            + "Pick up Jahn.`."
         await ctx.respond(ephemeral=True, content=err_msg)
         return False
 
@@ -548,11 +617,74 @@ async def reminder_modify(
             ephemeral=True,
             content=f"There was an internal error saving your modifications."
         )
-    else:
-        await ctx.respond(
-            ephemeral=True,
-            content=f"Changed {field} of reminder {reminder_id} to {new_value}."
-        )
+        return True
+
+    await ctx.respond(
+        ephemeral=True,
+        content=f"Changed reminder, this is how it looks now." \
+            + "\n" \
+            + reminder.to_str(bot=ctx.bot)
+    )
+    return True
+
+
+
+@reminder_slash_command_group.command(
+    name="list",
+    description="List reminders you are allowed to view."
+)
+async def reminder_view(ctx):
+    """TODO.
+
+    TODO.
+
+    Args:
+        ctx: The context this SlashCommand was called under
+        reminder_id: The unique identifier of the reminder to view
+    """
+    # TODO: give a pagniator of all reminders you are the author of or,
+    # or in a guild you admin
+    
+    user_permission = user_perm.UserPermission(ctx)
+    sqlite_response = None
+    #if user_permission.is_admin is False:
+    sqlite_response = sqlite.run(
+        file_name = FILE_NAME,
+        query = f"SELECT * FROM {TABLE_NAME} WHERE "\
+            + f"author_user_id={ctx.author.id}",
+        query_parameters = (),
+        commit = False
+    )
+    #else:
+    #    sqlite_response = sqlite.run(
+    #        file_name = FILE_NAME,
+    #        query = f"SELECT * FROM {TABLE_NAME} WHERE "\
+    #            + f"guild_id={ctx.guild.id if ctx.guild else None}",
+    #        query_parameters = (),
+    #        commit = False
+    #    )
+
+    if sqlite_response.success is False:
+        # TODO
+        ctx.respond(ephemeral=True, content="")
+        return False
+    if sqlite_response.result == []:
+        # TODO
+        ctx.respond(ephemeral=True, content="")
+        return False
+
+    reminder_list = []
+    page_list = ["Table of contents:" \
+        + "\n`Reminder ID: First 50 characters of content`"]
+    for result in sqlite_response.result:
+        reminder = Reminder()
+        reminder.from_tuple(result)
+        reminder_list.append(reminder)
+        page_list[0] += f"\n`{reminder.reminder_id}: {reminder.content[:49]}`"
+        page_list.append(reminder.to_str(bot=ctx.bot))
+    
+    paginator = pages.Paginator(pages=page_list, loop_pages=False)
+    await paginator.respond(ctx.interaction, ephemeral=True)
     return True
 
 
