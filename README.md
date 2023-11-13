@@ -19,6 +19,10 @@ But, here's a high level overview of the commands I currently support.
 | `/tts language $language`                 | Change the language/accent TTS speaks in for you.    |
 | `/permissions modify $who $perm $new_val` | Modify the permissions a user has over me.           |
 | `/permissions view $perm`                 | List users with a certain permission type over me.   |
+| `/reminder add $repeat $start $end $what` | Add a reminder for yourself.                         |
+| `/reminder list`                          | List all reminders.                                  |
+| `/reminder modify $id $what $to`          | Modify an existing reminder.                         |
+| `/reminder remove $id`                    | Remove a reminder.                                   |
 
 
 ## Backlog
@@ -39,7 +43,6 @@ But, here's a high level overview of the commands I currently support.
 | `/spotify volume $new_volume` | Change the volume of future Spotify audio/playlist. |
 | `/listen $on_or_off`          | Set whether to be listened to for commands or not.  |
 | `/poll $subject $options`     | Create a basic poll in this text chat.              |
-| `/remind $when $what`         | Set a reminder for yourself in this text chat       |
 | `/settings lock start`        | Make me unresponsive to non-admin messages.         |
 | `/settings lock stop`         | Make me responsive to non-admin messages.           |
 | `/settings kill`              | Disconnect me from Discord.                         |
