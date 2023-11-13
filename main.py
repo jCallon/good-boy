@@ -22,6 +22,7 @@ from discord_slash_commands import rng
 from discord_slash_commands import voice
 from discord_slash_commands import tts
 from discord_slash_commands import permissions
+from discord_slash_commands import reminder
 
 # Import helper for interacting with internal database
 from discord_slash_commands.helpers import sqlite
@@ -47,6 +48,7 @@ discord_bot.add_application_command(rng.rng_slash_command_group)
 discord_bot.add_application_command(voice.voice_slash_command_group)
 discord_bot.add_application_command(tts.tts_slash_command_group)
 discord_bot.add_application_command(permissions.permissions_slash_command_group)
+discord_bot.add_application_command(reminder.reminder_slash_command_group)
 
 
 
@@ -97,24 +99,27 @@ async def on_ready():
     #    ]
     #)
 
-    # TODO: uncomment once feature is enabled
     # Create or get connection to existing reminders database
-    #sqlite.add_connection(
-    #    file_name="reminders",
-    #    table_name_list=["outstanding_reminders"],
-    #    column_name_list=[
-    #        "author_user_id INTEGER NOT NULL",
-    #        "channel_id INTEGER NOT NULL",
-    #        "recurrance_type TEXT NOT NULL",
-    #        "start INTEGER NOT NULL",
-    #        "end INTEGER NOT NULL",
-    #        "content TEXT"
-    #    ]
-    #)
+    sqlite.add_connection(
+        file_name="reminders",
+        table_name_list=["outstanding_reminders"],
+        column_list=[
+            "reminder_id INTEGER NOT NULL PRIMARY KEY",
+            "author_user_id INTEGER NOT NULL",
+            "channel_id INTEGER NOT NULL",
+            "recurrence_type TEXT NOT NULL",
+            "next_occurrence_time INTEGER NOT NULL",
+            "expiration_time INTEGER NOT NULL",
+            "content TEXT"
+        ]
+    )
 
     # Print string in console to let bot owner know bot is connected to Discord
     # and ready to run commands
     print(f"{discord_bot.user} is ready and online!")
+
+    # Add cog containing task to dispatch reminders every minute
+    discord_bot.add_cog(reminder.ReminderCog(bot=discord_bot))
 
 
 
@@ -152,8 +157,6 @@ async def on_application_command_error(
 #==============================================================================#
 # Run Discord bot                                                              #
 #==============================================================================#
-
-
 
 # Get bot token from environment variables
 BOT_TOKEN = str(os.getenv("TOKEN"))

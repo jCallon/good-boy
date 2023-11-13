@@ -141,9 +141,9 @@ def run(
     """
     # Get pre-existing connection from connection_dict, if one doesn't exist,
     # can't do the query and return failure
-    connection = connection_dict[file_name]
-    if connection is None:
+    if file_name not in connection_dict:
         return Status(False, [])
+    connection = connection_dict[file_name]
 
     # Get cursor (iterator-like object) for the connection
     cursor = connection.cursor()

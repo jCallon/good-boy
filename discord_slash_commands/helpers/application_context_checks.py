@@ -265,7 +265,7 @@ def assert_author_is_allowed_to_call_command(
         Whether the check passed.
     """
     # The bot owner can do anything they want with the bot
-    if ctx.author.id == get_bot_owner_discord_user_id():
+    if ctx.author.id == user_perm.get_bot_owner_discord_user_id():
         return True
 
     # If a command is not from a guild and does not require a guild
