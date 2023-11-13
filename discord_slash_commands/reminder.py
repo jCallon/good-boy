@@ -700,50 +700,57 @@ async def reminder_list(ctx):
     Args:
         ctx: The context this SlashCommand was called under
     """
-    # TODO: handle admin case, query all reminders or have guild_id db field?
-    user_permission = user_perm.UserPermission(ctx)
-    sqlite_response = None
-    #if user_permission.is_admin is False:
+    # Run SQL query
+    # NOTE: This query can be optimized by introducing a guild_id column to the
+    # database table, but this is just a read, not a write, so I wasn't too
+    # concerned about speed
     sqlite_response = sqlite.run(
         file_name = DB_FILE_NAME,
-        query = f"SELECT * FROM {DB_TABLE_NAME} WHERE "\
-            + f"author_user_id={ctx.author.id}",
+        query = f"SELECT * FROM {DB_TABLE_NAME}",
         query_parameters = (),
         commit = False
     )
-    #else:
-    #    sqlite_response = sqlite.run(
-    #        file_name = DB_FILE_NAME,
-    #        query = f"SELECT * FROM {DB_TABLE_NAME} WHERE "\
-    #            + f"guild_id={ctx.guild.id if ctx.guild else None}",
-    #        query_parameters = (),
-    #        commit = False
-    #    )
 
+    # Tell author if SQL query failed
     if sqlite_response.success is False:
         await ctx.respond(
             ephemeral=True,
-            content="There was an internal error getting all the reminders " \
-                + "you are allowed to view."
-        )
-        return True
-    if sqlite_response.result == []:
-        await ctx.respond(
-            ephemeral=True,
-            content="I could not find any reminders you're allowed to view."
+            content="There was an internal error getting all the reminders."
         )
         return True
 
+    # Make a list of strings, each list element afer the 1st representing a
+    # Reminder the author is allowed to view
     reminder_list = []
     page_list = ["Summary:" \
         + "\n`Reminder ID: First 50 characters of content`"]
+    user_permission = user_perm.UserPermission(ctx)
     for result in sqlite_response.result:
+        # Parse reminder from SQL tuple
         reminder = Reminder()
         reminder.from_tuple(result)
+        # Omit a reminder from the list if the author is not allowed to view it
+        if reminder.author_user_id != ctx.author.id or \
+            not(user_permission.is_admin and ctx.guild.id == \
+                get_guild_for_channel_id(ctx.bot, reminder.channel_id).id):
+            continue
+        # Append reminder to summary and overall list
         reminder_list.append(reminder)
         page_list[0] += f"\n`{reminder.reminder_id}: {reminder.content[:49]}`"
         page_list.append(reminder.to_str(bot=ctx.bot))
 
+    # If the pages to display is only an empty summary, there was nothing found
+    # the author was allowed to view
+    if len(page_list) == 1:
+        await ctx.respond(
+            ephemeral=True,
+            content="I could not find any reminders you are allowed to view." \
+                + "You are only allowed to view reminders you authored or " \
+                + "that were created in this guild, if you're an admin in it."
+        )
+        return True
+
+    # Return a neat page view of the reminders allowed to be viewed
     paginator = pages.Paginator(pages=page_list, loop_pages=False)
     await paginator.respond(ctx.interaction, ephemeral=True)
     return True
