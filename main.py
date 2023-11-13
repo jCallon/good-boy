@@ -118,7 +118,7 @@ async def on_ready():
     # and ready to run commands
     print(f"{discord_bot.user} is ready and online!")
 
-    # TODO: comment
+    # Add cog containing task to disaptch reminders every minute
     discord_bot.add_cog(reminder.ReminderCog(bot=discord_bot))
 
 
