@@ -428,7 +428,6 @@ TTS_DEFAULT_VOLUME = 2.0
     checks=[
         ctx_check.assert_bot_is_in_voice_chat,
         ctx_check.assert_bot_is_in_same_voice_chat_as_author,
-        ctx_check.assert_bot_is_not_playing_audio_in_voice_chat,
     ]
 )
 async def tts_play(
