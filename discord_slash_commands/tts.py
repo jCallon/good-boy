@@ -311,8 +311,9 @@ class TTSFileInfoList():
         """
         return f"{self.file_directory}/{file_name}"
 
-    def get_audio_source(
+    def queue_audio(
         self,
+        ctx: discord.ApplicationContext,
         text_to_say: str,
         language_to_speak: str
     ) -> discord.FFmpegPCMAudio:
@@ -326,6 +327,7 @@ class TTSFileInfoList():
 
         Args:
             self: This TTSUserPreferenceList
+            ctx: The context of the SlashCommand calling this function
             text_to_say: The text TTS will try to say
             language_to_speak: The language TTS will try to say text_to_say in
 
@@ -374,10 +376,12 @@ class TTSFileInfoList():
             )
             speech_from_text.save(file_path)
 
-        # Return PyCord-compatible audio source for audio file
-        return discord.FFmpegPCMAudio(
-            source=file_path,
-            options=[["volume", TTS_DEFAULT_VOLUME]]
+        # Queue audio
+        audio_queue_list = ctx.bot.get_cog("AudioQueueList")
+        return audio_queue_list is not None and audio_queue_list.add(
+            ctx=ctx,
+            description=text_to_say,
+            file_path=file_path
         )
 
 
@@ -480,32 +484,35 @@ async def tts_play(
 
     # If we got here, the arguments and bot state should be valid and safe to
     # act upon.
-    # Get the sound for the text and send it to voice chat
-
-    # Get audio sources
-    name_audio_source = tts_file_info_list.get_audio_source(
+    # Create/queue audio sources
+    name_is_queued = tts_file_info_list.queue_audio(
+        ctx=ctx,
         text_to_say=tts_user_preference.spoken_name,
         language_to_speak=tts_user_preference.language
     )
-    text_audio_source = tts_file_info_list.get_audio_source(
+    content_is_queued = name_is_queued and tts_file_info_list.queue_audio(
+        ctx=ctx,
         text_to_say=text_to_say,
         language_to_speak=tts_user_preference.language
     )
 
-    # Play tts_user_preference.spoken_name then text_to_say
-    audio_queue.set_next_source(
-        voice_client=ctx.bot.voice_clients[0],
-        audio_source=text_audio_source,
-        after_function=None
-    )
-    ctx.bot.voice_clients[0].play(
-        source=name_audio_source,
-        after=audio_queue.play_next_source
-    )
-
+    if name_is_queued is False or content_is_queued is False:
+        # Remove name from queue if content will not follow
+        if name_is_queued is True and content_is_queued is False:
+            audio_queue_list = ctx.bot.get_cog("AudioQueueList")
+            audio_queue_list.remove(
+                audio_queue_list.queue[-1].audio_queue_element_id
+            )
+        # Tell author there was an error
+        await ctx.respond(
+            ephemeral=True,
+            content=f"The audio queue is full, please wait until it's smaller."
+        )
+        return False
+        
     await ctx.respond(
         ephemeral=True,
-        content=f"I'm trying to say \"{text_to_say}\"."
+        content=f"I have queued audio to say \"{text_to_say}\"."
     )
     return True
 

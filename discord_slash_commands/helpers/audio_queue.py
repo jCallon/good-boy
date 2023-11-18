@@ -9,6 +9,9 @@ improvements.
 # Import libraries                                                             #
 #==============================================================================#
 
+# Import API for keeping track of time
+import time
+
 # Import Discord Python API
 import discord
 
@@ -58,7 +61,7 @@ class AudioQueueElement():
         author_user_id: int = 0,
         description: str = "",
         source_command: str = "",
-        file_name: str = ""
+        file_path: str = ""
     ):
         """Initialize this AudioQueueElement.
 
@@ -162,6 +165,7 @@ class AudioQueueList(commands.Cog):
             meaing it cannot be resumed on unpause.
         is_paused: Whether audio queue is currently paused and has stopped
             playing audio.
+        volume: The current volume to play audio at, for example 1.0 = 100%.
     """
     def __init__(self, voice_client: discord.VoiceClient):
         """Initialize this AudioQueueList.
@@ -179,6 +183,8 @@ class AudioQueueList(commands.Cog):
         self.latest_play_timestamp = 0
         self.paused_audio_was_deleted = False
         self.is_paused = False
+        self.volume = 1.0
+        self.play_next.start()
 
     def add(
         self,
@@ -204,10 +210,16 @@ class AudioQueueList(commands.Cog):
         if len(self.queue) >= MAX_AUDIO_QUEUE_LENGTH:
             return False
 
-        # Add a new AudioQueueElement to this AudioQueueList with unique ID.
-        audio_queue_element_list.append(
+        # Generate unique audio_queue_element_id
+        audio_queue_element_id = 0
+        if len(self.queue) > 0:
+            audio_queue_element_id = \
+                (self.queue[-1].audio_queue_element_id + 1) % 1000
+
+        # Add a new AudioQueueElement to this AudioQueueList with unique ID
+        self.queue.append(
             AudioQueueElement(
-                (queue[len(queue) - 1].audio_queue_element_id + 1) % 1000,
+                audio_queue_element_id = audio_queue_element_id,
                 author_user_id = ctx.author.id,
                 source_command = f"/{ctx.command.qualified_name}",
                 description = description,
@@ -303,7 +315,7 @@ class AudioQueueList(commands.Cog):
         # Play audio source, save time of starting play(),
         # afterwards set as unpaused so normal audio queue can resume
         self.latest_play_timestamp = time.time()
-        self.init_play_after(self, "set_is_paused", (False))
+        init_play_after(self, "set_is_paused", (False,))
         self.voice_client.play(audio_source, after=play_after)
     
     #def interrupt(self, audio_source: discord.audio_source) -> None:
@@ -349,7 +361,13 @@ class AudioQueueList(commands.Cog):
         Args:
             self: This AudioQueueList
         """
-        # Don't do anything if:
+        # Remove finished audio from queue, reset intermediate state
+        if self.latest_is_finished is True:
+            self.queue.pop(0)
+            self.latest_offset = 0
+            self.latest_is_finished = False
+
+        # Don't do anything else if:
         # - There are no audio elements queued
         # - We are already playing audio
         # - We are paused
@@ -357,12 +375,6 @@ class AudioQueueList(commands.Cog):
             self.voice_client.is_playing() or \
             self.is_paused:
             return
-
-        # Remove finished audio from queue, reset intermediate state
-        if self.latest_finished is True:
-            self.queue.pop(0)
-            self.latest_offset = 0
-            self.latest_finished = False
 
         # Create audio_source
         # If the file no longer exists or cannot be read, it cannot be resumed
@@ -375,7 +387,7 @@ class AudioQueueList(commands.Cog):
 
         # Play audio_source
         self.latest_play_timestamp = time.time()
-        self.init_play_after(self, "set_latest_finished", (True))
+        init_play_after(self, "set_latest_is_finished", (True,))
         self.voice_client.play(audio_source, after=play_after)
 
 
@@ -383,19 +395,19 @@ class AudioQueueList(commands.Cog):
 # The after functions of play() not allowing parameters make me sad :(
 # This code is horrible... Hiding it at the bottom.
 # Anyways, get around not having params with globals.
-global g_audio_queue
+global g_audio_queue_list
 global g_operation
 global g_params
 
 def init_play_after(
-    audio_queue: AudioQueueList,
+    audio_queue_list: AudioQueueList,
     operation: str,
     params: tuple
 ):
-    global g_audio_queue
+    global g_audio_queue_list
     global g_operation
     global g_params
-    g_audio_queue = audio_queue
+    g_audio_queue_list = audio_queue_list
     g_operation = operation
     g_params = params
 
@@ -403,10 +415,10 @@ def play_after(error):
     if error is not None:
         print(error)
 
-    global g_audio_queue
+    global g_audio_queue_list
     global g_operation
     global g_params
     if g_operation == "set_is_paused":
-        g_audio_queue.is_paused = g_params[0]
-    elif g_operation == "set_latest_finished":
-        g_audio_queue.is_finished = g_params[0]
+        g_audio_queue_list.is_paused = g_params[0]
+    elif g_operation == "set_latest_is_finished":
+        g_audio_queue_list.latest_is_finished = g_params[0]
