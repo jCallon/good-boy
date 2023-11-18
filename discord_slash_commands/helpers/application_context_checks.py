@@ -290,3 +290,25 @@ def assert_author_is_allowed_to_call_command(
     # TODO: uncomment once feature is enabled
     #return assert_bot_is_accepting_non_admin_commands(ctx)
     return True
+
+
+
+def assert_bot_audio_queue_length_is_non_zero(
+    ctx: discord.ApplicationContext
+) -> bool:
+    """TODO.
+
+    TODO.
+
+    Args:
+        ctx: The context the slash command using this check was called under
+
+    Returns:
+        Whether the check passed.
+    """
+    audio_queue = ctx.bot.get_cog("AudioQueue")
+    return application_context_check(
+        audio_queue is not None and len(audio_queue.queue) > 0,
+        "There must be audio in the audio queue to use this command." \
+            + "\nI clear my audio queue when I am not in voice chat."
+    )

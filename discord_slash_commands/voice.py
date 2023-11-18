@@ -200,7 +200,7 @@ async def voice_queue_pause(
     ctx,
     value: discord.Option(
         str,
-        description="Whether to start or stop pausing."
+        description="Whether to start or stop pausing.",
         choices=["start", "stop"]
     )
 ):

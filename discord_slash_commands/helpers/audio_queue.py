@@ -9,11 +9,11 @@ improvements.
 # Import libraries                                                             #
 #==============================================================================#
 
-# Import Callable type
-from typing import Callable
-
 # Import Discord Python API
 import discord
+
+# Import Discord extended APIs to create timed tasks
+from discord.ext import commands, tasks
 
 #==============================================================================#
 # Define underlying structure                                                  #
@@ -89,8 +89,8 @@ class AudioQueueElement():
         """
         return "\nID: `{self.audio_queue_element_id}`" \
             + "\nAuthor: <@{self.author_user_id}>" \
-            + "\nDescription: `{self.description}`"
-            + "\nSource: `{self.source_command}`" \
+            + "\nDescription: `{self.description}`" \
+            + "\nSource: `{self.source_command}`"
 
     def get_audio_source(
         self,
@@ -139,7 +139,7 @@ class AudioQueueElement():
             
         # The file does not exist so an audio source coukd not be made
         print("WARNING: Skipped playing {self.description}, because its file " \
-            + "location, {self.file_path}, could not be openmed and read."
+            + "location, {self.file_path}, could not be openmed and read.")
         return None
 
 class AudioQueueList(commands.Cog):
@@ -303,7 +303,8 @@ class AudioQueueList(commands.Cog):
         # Play audio source, save time of starting play(),
         # afterwards set as unpaused so normal audio queue can resume
         self.latest_play_timestamp = time.time()
-        self.voice_client.play(audio_source, after=self.is_paused=False)
+        self.init_play_after(self, "set_is_paused", (False))
+        self.voice_client.play(audio_source, after=play_after)
     
     #def interrupt(self, audio_source: discord.audio_source) -> None:
     #    """Interrupt the current audio queue to play a more important sound.
@@ -339,7 +340,7 @@ class AudioQueueList(commands.Cog):
     # NOTE: There's probably a more efficient way to do this, such as with
     # events and listeners
     @tasks.loop(seconds=1.0)
-    def play_next(self) -> None:
+    async def play_next(self) -> None:
         """Play the next AudioQueueElement in queue.
         
         Play queue[0] in voice chat unless paused, already playing something,
@@ -349,12 +350,12 @@ class AudioQueueList(commands.Cog):
             self: This AudioQueueList
         """
         # Don't do anything if:
-        # - We are paused
-        # - We are already playing audio
         # - There are no audio elements queued
-        if self.is_paused or \
+        # - We are already playing audio
+        # - We are paused
+        if len(self.queue) == 0 or \
             self.voice_client.is_playing() or \
-            len(self.queue) == 0:
+            self.is_paused:
             return
 
         # Remove finished audio from queue, reset intermediate state
@@ -374,4 +375,38 @@ class AudioQueueList(commands.Cog):
 
         # Play audio_source
         self.latest_play_timestamp = time.time()
-        self.voice_client.play(audio_source, after=self.latest_finished=True)
+        self.init_play_after(self, "set_latest_finished", (True))
+        self.voice_client.play(audio_source, after=play_after)
+
+
+
+# The after functions of play() not allowing parameters make me sad :(
+# This code is horrible... Hiding it at the bottom.
+# Anyways, get around not having params with globals.
+global g_audio_queue
+global g_operation
+global g_params
+
+def init_play_after(
+    audio_queue: AudioQueueList,
+    operation: str,
+    params: tuple
+):
+    global g_audio_queue
+    global g_operation
+    global g_params
+    g_audio_queue = audio_queue
+    g_operation = operation
+    g_params = params
+
+def play_after(error):
+    if error is not None:
+        print(error)
+
+    global g_audio_queue
+    global g_operation
+    global g_params
+    if g_operation == "set_is_paused":
+        g_audio_queue.is_paused = g_params[0]
+    elif g_operation == "set_latest_finished":
+        g_audio_queue.is_finished = g_params[0]
