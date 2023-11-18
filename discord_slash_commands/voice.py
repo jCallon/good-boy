@@ -16,6 +16,9 @@ import discord
 # Import functions for asserting bot state
 import discord_slash_commands.helpers.application_context_checks as ctx_check
 
+# Import Discord extended APIs to create organized lists
+from discord.ext import pages
+
 # TODO: write comment
 from discord_slash_commands.helpers import audio_queue
 
@@ -243,7 +246,7 @@ async def voice_queue_list(ctx):
         ctx: The context this SlashCommand was called under
     """
     # Get the audio queue
-    audio_queue_list = bot.ctx.cogs.get_cog("AudioQueueList")
+    audio_queue_list = ctx.bot.get_cog("AudioQueueList")
 
     # Make a list of strings, each list element afer the 1st representing an
     # AudioQueueElement

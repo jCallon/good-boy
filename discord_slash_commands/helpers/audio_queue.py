@@ -90,10 +90,10 @@ class AudioQueueElement():
         Args:
             self: This AudioQueueElement
         """
-        return "\nID: `{self.audio_queue_element_id}`" \
-            + "\nAuthor: <@{self.author_user_id}>" \
-            + "\nDescription: `{self.description}`" \
-            + "\nSource: `{self.source_command}`"
+        return f"\nID: `{self.audio_queue_element_id}`" \
+            + f"\nAuthor: <@{self.author_user_id}>" \
+            + f"\nDescription: `{self.description}`" \
+            + f"\nSource: `{self.source_command}`"
 
     def get_audio_source(
         self,
