@@ -174,7 +174,7 @@ async def voice_queue_remove(
     """
     # Get the audio queue,
     # fill in the audio_queue_element_id if None was provided
-    audio_queue_list = bot.ctx.cogs.get_cog("AudioQueueList")
+    audio_queue_list = ctx.bot.get_cog("AudioQueueList")
     if audio_queue_element_id is None:
         audio_queue_element_id = audio_queue_list.queue[0].audio_queue_element_id
 
@@ -221,7 +221,7 @@ async def voice_queue_pause(
         value: Whether to start or stop pausing audio queue
     """
     # Get the audio queue, set whether to pause or unpause it
-    audio_queue_list = bot.ctx.cogs.get_cog("AudioQueueList")
+    audio_queue_list = ctx.bot.get_cog("AudioQueueList")
     if value == "start":
         audio_queue_list.pause()
         await ctx.respond(ephemeral=True, content="I paused my audio queue.")

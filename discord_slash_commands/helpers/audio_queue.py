@@ -253,10 +253,13 @@ class AudioQueueList(commands.Cog):
             return False
 
         # If the match is the audio currently playing, need to stop it
-        if match_index == 1:
+        if match_index == 0:
             self.voice_client.stop()
+            self.latest_is_finished = True
             if self.is_paused:
+                self.queue.pop(match_index)
                 self.paused_audio_was_deleted = True
+            return True
 
         # Remove the matching AudioQueueElement from queue
         self.queue.pop(match_index)
@@ -299,6 +302,7 @@ class AudioQueueList(commands.Cog):
         # If the audio source being played when the queue was paused was
         # deleted, just resume the normal audio queue to pick up the next audio
         if self.paused_audio_was_deleted or len(self.queue) == 0:
+            self.paused_audio_was_deleted = False
             self.is_paused = False
             return
 
