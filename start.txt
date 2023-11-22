@@ -9,6 +9,12 @@ pip install "py-cord[voice]"
 pip install python-dotenv
 pip install gtts
 pip install python-dateutil
+pip install youtube-dl
+
+# If the youtube-dl package on your distribution doesn't work,
+# you can try making a directory in this bot called youtube_dl,
+# and copying the contents of the main repo into it:
+# https://github.com/ytdl-org/youtube-dl/tree/master/youtube_dl
 
 # Make a file to read your bot's token from
 touch .env

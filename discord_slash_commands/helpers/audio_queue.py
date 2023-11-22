@@ -191,7 +191,7 @@ class AudioQueueList(commands.Cog):
         ctx: discord.ApplicationContext,
         description: str,
         file_path: str
-    ) -> bool:
+    ) -> int:
         """Add a new AudioQueueElement to this AudioQueueList.
 
         If there is room in the audio queue, append new AudioQueueElement to the
@@ -204,11 +204,12 @@ class AudioQueueList(commands.Cog):
             file_path: The path to the audio file to actually play
 
         Returns:
-            Whether a new AudioQueueElement with your parameters was added.
+            The place in queue the new audio was put at, -1 if nowhere (due to
+            error or cap), 1 meaning first in queue.
         """
         # Do not allow addition of another audio source if queue is already full
         if len(self.queue) >= MAX_AUDIO_QUEUE_LENGTH:
-            return False
+            return -1
 
         # Generate unique audio_queue_element_id
         audio_queue_element_id = 0
@@ -226,7 +227,7 @@ class AudioQueueList(commands.Cog):
                 file_path = file_path
             )
         )
-        return True
+        return len(self.queue)
 
     def remove(self, audio_queue_element_id: int) -> bool:
         """Remove an existing AudioQueueElement from this AudioQueueList.
