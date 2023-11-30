@@ -159,6 +159,8 @@ class YoutubeFile():
         video_file_name: If the url was valid, the name of the video file
             pointed to by it, stripped of non-ascii chracters.
         audio_file_name: video_file_name, but with an mp3 file type instead
+        length_in_seconds: An integer containing the length of the YouTube video
+            pointed to by url in seconds.
         logger: A logger instance to hold exactly how the youtube-dl transaction
             to get video_file_name went
     """
@@ -178,25 +180,11 @@ class YoutubeFile():
         self.url = url
         self.video_file_name = ""
         self.audio_file_name = ""
+        self.length_in_seconds = 0
         self.logger = YoutubeDlLogger()
 
         # TODO: youtube-dl verifies URL isn't mailicious,
         #      such as a bash command, right?
-
-        # Initialize youtube-dl options to get file name of file pointed to by
-        # self.url, but don't actually download the video in the process
-        # See https://github.com/ytdl-org/youtube-dl#options
-        #youtube_dl_options = {
-        #    # Do not download the video and do not write anything to disk
-        #    "simulate" : "",
-        #    # Simulate, quiet but print output filename
-        #    "get-filename" : "",
-        #    # Restrict filenames to only ASCII characters,
-        #    # and avoid "&" and spaces in filenames
-        #    "restrict-filenames" : "",
-        #    # Catch youtube-dl output in a custom logger class
-        #    "logger" : self.logger,
-        #}
 
         # For command-line options, see
         # https://github.com/ytdl-org/youtube-dl#options
@@ -205,10 +193,12 @@ class YoutubeFile():
         youtube_dl_options = {
             # Do not download the video files
             "simulate" : True,
-            # Do not print messages to stdout
+            # Do not print (most) messages to stdout
             "quiet" : True,
             # Force printing final filename
             "forcefilename" : True,
+            # Force printing video length
+            "forceduration" : True,
             # Do not allow "&" and spaces in file names
             "restrictfilenames" : True,
             # Catch youtube-dl output in a custom logger class
@@ -225,13 +215,31 @@ class YoutubeFile():
                 self.logger.print_log()
                 return
 
-        # There url was valid, set self.video_file_name and derive
+        # The url was valid, set self.video_file_name and derive
         # self.audio_file_name from it (the same file name, but ending in .mp3)
         debug_messages = self.logger.get_messages("debug")
         self.video_file_name = debug_messages[1]
         index_of_last_period = self.video_file_name.rfind(".")
         self.audio_file_name = self.video_file_name[0:index_of_last_period] \
             + ".mp3"
+
+        # Derive self.length_in_seconds from HH:MM:SS-like timestamp
+        # Ex. 0:52 = 52 seconds
+        # 3:21 = 3 minutes and 21 seconds
+        # 50:24:46 = 50 hours, 24 minutes, and 46 seconds
+        length_timestamp = debug_messages[2]
+        length_timestamp = length_timestamp.split(":")
+        hours = 0
+        minutes = 0
+        seconds = 0
+        if len(length_timestamp) == 3:
+            hours = int(length_timestamp[0])
+            minutes = int(length_timestamp[1])
+            seconds = int(length_timestamp[2])
+        else:
+            minutes = int(length_timestamp[0])
+            seconds = int(length_timestamp[1])
+        self.length_in_seconds = (hours * 60 * 60) + (minutes * 60) + seconds
 
     def download(self, directory : str) -> bool:
         """Download the YouTube video pointed to by self.url.
@@ -254,8 +262,10 @@ class YoutubeFile():
             'format': 'bestaudio/best',
             # Location for youtube-dl to put cache files
             "cachedir" : directory,
-            # Set the max allowed video size to 20MB
-            "max_filesize" : "20m",
+            ##### This does not seem to actually work,
+            ##### or causes issues with the postprocessor
+            ##### Set the max allowed video size to 20MB
+            ####"max_filesize" : "20m",
             # If the URL is of an item in a playlist, just download the
             # individual video instead of the playlist
             "noplaylist" : True,
@@ -264,10 +274,7 @@ class YoutubeFile():
             "outtmpl" : f"{directory}/{self.video_file_name}",
             # Stop on download errors
             "ignoreerrors" : False,
-            # In post-processing, extract audio and delete video
-            #"extractaudio" : True,
-            # In post-processing, set audio format to mp3
-            #"audioformat" : "mp3",
+            # In post-processing, turn video to mp3 via ffmpeg
             "postprocessors" : [{
                 'key': 'FFmpegExtractAudio',
                 'preferredcodec': 'mp3',
@@ -319,6 +326,20 @@ async def youtube_play(
         ctx: The context this SlashCommand was called under
         url: The URL for the YouTube video or playlist to download and play
     """
+    # Check validity of URL
+    if (not(url.startswith("https://youtu.be/") or \
+        url.startswith("https://www.youtube.com/playlist?list="))):
+        await ctx.respond(
+            ephemeral=True,
+            content="To play a single video, use a URL starting with " \
+                + "`https://youtu.be/`, generated by the share button." \
+                + "\nTo play a playlist, use a URL starting with " \
+                + "`https://www.youtube.com/playlist?list=`, " \
+                + "shown in your navigation bar when viewing the playlist " \
+                + "(but not a specific video within it)." \
+        )
+        return False
+
     # Create empty list of files to be played
     youtube_file_list = []
 
@@ -343,8 +364,7 @@ async def youtube_play(
     await ctx.respond(
         ephemeral=True,
         content="Please wait... trying to download the single video or " \
-            + f"playlist pointed to by `{url}`. " \
-            + "\nI *will* fail to download files greater than 20MB in size." \
+            + f"playlist pointed to by `{url}`. "
     )
 
     # Get AudioQueue cog
@@ -357,6 +377,11 @@ async def youtube_play(
         # video, tell the author and don't bother downloading or queuing it
         if youtube_file.logger.had_error is True:
             rsp += f"\nError retrieving: `{youtube_file.url}`"
+            continue
+
+        if youtube_file.length_in_seconds > 30*60:
+            rsp += f"\n{youtube_file.video_file_name} is longer than my max " \
+                + "allowed video length of 30 minutes."
             continue
 
         # Download the audio file for this video if it's not already downloaded
