@@ -380,8 +380,8 @@ async def youtube_play(
             continue
 
         if youtube_file.length_in_seconds > 30*60:
-            rsp += f"\n{youtube_file.video_file_name} is longer than my max " \
-                + "allowed video length of 30 minutes."
+            rsp += f"\n{youtube_file.url} is longer than my max allowed " \
+                + "video length of 30 minutes."
             continue
 
         # Download the audio file for this video if it's not already downloaded
@@ -389,7 +389,7 @@ async def youtube_play(
             # Download to intermediate cache, then move to youtube file cache
             if youtube_file.download(file_cache.CACHE_DIR) is False or \
                 youtube_file_cache.add(youtube_file.audio_file_name) is False:
-                rsp += f"\nError downloading: `{youtube_file.video_file_name}`"
+                rsp += f"\nError downloading: {youtube_file.url}"
                 continue
 
         # Add the downloaded file to audio queue
@@ -399,13 +399,12 @@ async def youtube_play(
             file_path = f"{youtube_file_cache.directory}/{youtube_file.audio_file_name}"
         )
         if audio_queue_index == -1:
-            rsp += f"\nFailed to queue: `{youtube_file.audio_file_name}`" \
-                + "\nWill stop adding more files to my audio queue."
+            rsp += f"\nError queuing: {youtube_file.url}" \
+                + "\nWill stop adding more audio to my audio queue."
             break
         else:
-            rsp += f"\nSuccessfully queued: " \
-                + f"`{youtube_file.audio_file_name}` in slot " \
-                + f"`{audio_queue_index}`"
+            rsp += f"\nSuccessfully queued: {youtube_file.url} " \
+                + f"in slot `{audio_queue_index}`."
 
     # Tell author status of all downloading and queuing
     await ctx.respond(ephemeral=True, content=rsp)
