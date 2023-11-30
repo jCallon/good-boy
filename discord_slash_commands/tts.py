@@ -221,9 +221,9 @@ class TTSUserPreference():
 
 
 # Create class instances
-tts_file_info_list = TTSFileInfoList(
-    file_directory = "tts_cache",
-    max_allowed_files = 100
+tts_file_cache = file_cache.FileCacheList(
+    directory = "tts",
+    max_bytes = 20*1000000
 )
 
 
@@ -267,18 +267,18 @@ def make_tts_audio_source(
         TODO.
     """
     # Get file name for text_to_say and language_to_speak
-    file_name = tts_audio_cache.get_hashed_file_name(
+    file_name = tts_file_cache.get_hashed_file_name(
         content_to_hash = (text_to_say, language_to_speak),
         file_extension = "mp3"
     )
 
     # If the file is not already downloaded, download it
-    if not tts_audio_cache.file_exists(file_name):
+    if not tts_file_cache.file_exists(file_name):
         speech_from_text = gtts.tts.gTTS(
             text=text_to_say,
             lang=language_to_speak
         )
-        speech_from_text.save(file_cache.CACHE_DIR)
+        speech_from_text.save(f"{file_cache.CACHE_DIR}/{file_name}")
         # TODO: error should never happen, but add check anyways
         tts_file_cache.add(file_name)
 
