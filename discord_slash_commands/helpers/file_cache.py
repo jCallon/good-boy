@@ -202,7 +202,7 @@ class FileCacheList():
                 os.path.remove(new_file.file_path)
                 return False
 
-            # If adding this file would not put self.directory over 
+            # If adding this file would not put self.directory over
             # self.max_bytes, can just move it into self.directory,
             # no fuss
             if os.path.getsize(self.directory) + new_file.size_in_bytes <= \
@@ -215,8 +215,8 @@ class FileCacheList():
             # within self.max_bytes...
             # Get all file names, access times, and sizes.
             files_in_directory = []
-            for file_name in os.listdir(self.directory):
-                files_in_directory.append(FileCacheElement(file_name))
+            for file_name_in_dir in os.listdir(self.directory):
+                files_in_directory.append(FileCacheElement(file_name_in_dir))
 
             # Sort file_cache_element_sorted_list access time,
             # [0] == least recently accessed
@@ -228,7 +228,7 @@ class FileCacheList():
             # Remove least recently accessed files until we have enough
             # space for the new file
             while self.max_bytes > \
-                os.path.getsize(self.directory) + new_file_size_in_bytes:
+                os.path.getsize(self.directory) + new_file.size_in_bytes:
                 os.path.remove(
                     self.get_file_path(files_in_directory[0].file_name)
                 )
