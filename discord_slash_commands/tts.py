@@ -255,16 +255,18 @@ def make_tts_audio_source(
     text_to_say : str,
     language_to_speak : str
 ) -> discord.FFmpegPCMAudio:
-    """TODO.
+    """Create a Discord-friendly audio source for TTS.
 
-    TODO.
+    Create TTS audio for text_to_say and lanuage_to_speak if it doesn't already
+    exist, then return a Discord-friendly audio source using it.
 
     Args:
-        text_to_say: TODO
-        language_to_speak: TODO
+        text_to_say: The text to say in TTS
+        language_to_speak: The language to speak text_to_say in
 
     Returns:
-        TODO.
+        A discord.FFmpegPCMAudio source pointing to an mp3 created by gtts using
+        text_to_say and language_to_speak.
     """
     # Get file name for text_to_say and language_to_speak
     file_name = tts_file_cache.get_hashed_file_name(
