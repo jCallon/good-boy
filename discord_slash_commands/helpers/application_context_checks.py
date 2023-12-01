@@ -299,7 +299,7 @@ def assert_bot_audio_queue_length_is_non_zero(
     """Assert the bot's audio queue length is non-zero.
 
     Assert the bot has an audio queue (this should only be possible when it is
-    in voice chat) and the length of its audio queue greater than 0.
+    in voice chat) and the length of its audio queue is greater than 0.
 
     Args:
         ctx: The context the slash command using this check was called under
