@@ -13,8 +13,14 @@ otherwise interface with audio in voice chat.
 # Import Discord Python API
 import discord
 
+# Import Discord extended APIs to create organized lists
+from discord.ext import pages
+
 # Import functions for asserting bot state
 import discord_slash_commands.helpers.application_context_checks as ctx_check
+
+# TODO: write comment
+from discord_slash_commands.helpers import audio_queue
 
 #==============================================================================#
 # Define underlying structure                                                  #
@@ -66,6 +72,7 @@ async def voice_join(ctx):
     # Join the author's voice chat
     # TODO: Play a high bark on entry
     await ctx.author.voice.channel.connect()
+    ctx.bot.add_cog(audio_queue.AudioQueueList(ctx.bot.voice_clients[0]))
     await ctx.respond(
         ephemeral = False,
         delete_after = 60*30,
@@ -95,6 +102,7 @@ async def voice_leave(ctx):
     # Leave the author's voice chat
     # TODO: Play a low bark on exit
     await ctx.voice_client.disconnect()
+    ctx.bot.remove_cog("AudioQueueList")
     await ctx.respond(
         ephemeral=False,
         delete_after=60*30,
