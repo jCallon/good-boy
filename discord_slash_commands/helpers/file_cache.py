@@ -32,7 +32,7 @@ class FileCacheElement():
 
     Attributes:
         directory: The directory containing the file matching self.file_name
-        file_name: The name of file the to get/store information for 
+        file_name: The name of the file to get/store information for
         last_access_time: The last time the file matching self.file_name was
             accessed. This may not be the same as when it was made or last
             modified.
@@ -82,7 +82,7 @@ class FileCacheList():
     ):
         """Initialize this FileCacheList.
 
-        Set the members of this FileCacheList to the passed in values.
+        Set the members of this FileCacheList based on passed in values.
 
         Args:
             self: This FileCacheList
@@ -105,7 +105,7 @@ class FileCacheList():
         A great example of this is TTS, where we don't want to regenerate
         TTS audio we already have on disk, but we also don't want to save
         its file name as whatever arbitrary text they typed, such as an
-        embedded bash command they typed to help someone else in call.
+        embedded bash command someone typed to help someone else in-call.
         Using a hash lets you always generate the same file name for the
         same content_to_hash, letting you find the file again later.
         Used: https://cryptobook.nakov.com/cryptographic-hash-functions.
@@ -122,7 +122,7 @@ class FileCacheList():
             A file name, made from the concatenation of a hash of
             content_to_hash and file_extenstion.
         """
-        # Create string which is just a concatenation of all the elements in
+        # Create a string which is just a concatenation of all the elements in
         # content_to_hash
         byte_array = ""
         for element_to_hash in content_to_hash:
@@ -132,13 +132,13 @@ class FileCacheList():
         byte_array = byte_array.encode()
         byte_array = binascii.hexlify(hashlib.sha3_256(byte_array).digest())
 
-        # Return the result of the hash + file_extension
+        # Return the result, a concatenation of the hash and file_extension
         return f"{byte_array}.{file_extension}"
 
     def get_file_path(self, file_name: str) -> str:
         """Get the file path of file_name if it were in self.directory.
 
-        Generate the relative file path of where file_name would be stored
+        Generate the relative file path for where file_name would be stored
         if it were stored within the directory specified by self.directory.
 
         Args:
@@ -168,21 +168,22 @@ class FileCacheList():
     def add(self, file_name: str) -> bool:
         """Move a file downloaded to cache to self.directory.
 
-        After you've downloaded a file in CACHE_DIR, try to add it to the
-        directory at self.directory. If the file matching file_name is larger
-        than self.max_bytes, don't allow it in and delete it. Otherwise, remove
-        every file in self.directory, starting from the least recently accessed,
-        until adding the file matching file_name to self.directory would not
-        make the directory exceed self.max_bytes, then, move the file to
-        self.directory.
+        After you've downloaded a file in CACHE_DIR, use this function to try
+        to add it to the directory at self.directory.
+        If the file matching file_name is larger than self.max_bytes, don't
+        allow the file in self.directory and delete it.
+        Otherwise, remove every file in self.directory, starting from the least
+        recently accessed, until adding the file matching file_name to
+        self.directory would not make the directory exceed self.max_bytes, then,
+        move the file to self.directory.
 
         Args:
             self: This FileCacheList
-            file_name: The name of the file you wish to add to the directory
+            file_name: The name of the file you wish to move to the directory
                 specified by self.directory
 
         Returns:
-            Whether the operation was successful. It may not be, for 
+            Whether the operation was successful. It may not be, for
             example, if deleting every file in the directory specified by
             self.directory would not make enough room for the new file.
         """
@@ -197,7 +198,7 @@ class FileCacheList():
 
             # If this file is bigger than the directory is allowed to be,
             # it'll be impossible to add this file while staying within size
-            # constraints, remove it
+            # constraints, remove it entirely
             if new_file.size_in_bytes > self.max_bytes:
                 os.path.remove(new_file.file_path)
                 return False
@@ -213,26 +214,25 @@ class FileCacheList():
             # This file is safe to add to self.directory and requires other
             # files within self.directory to be deleted to have it fit
             # within self.max_bytes...
-            # Get all file names, access times, and sizes.
-            files_in_directory = []
-            for file_name_in_dir in os.listdir(self.directory):
-                files_in_directory.append(FileCacheElement(file_name_in_dir))
 
-            # Sort file_cache_element_sorted_list access time,
+            # Get each file name, access time, etc. in self.directory
+            files_in_dir = []
+            for file_name_in_dir in os.listdir(self.directory):
+                files_in_dir.append(FileCacheElement(file_name_in_dir))
+
+            # Sort file_cache_element_sorted_list by access time,
             # [0] == least recently accessed
-            files_in_directory = sorted(
-                files_in_directory,
+            files_in_dir = sorted(
+                files_in_dir,
                 key=lambda file_info: file_info.last_access_time
             )
 
-            # Remove least recently accessed files until we have enough
+            # Remove the least recently accessed file until we have enough
             # space for the new file
             while self.max_bytes > \
                 os.path.getsize(self.directory) + new_file.size_in_bytes:
-                os.path.remove(
-                    self.get_file_path(files_in_directory[0].file_name)
-                )
-                files_in_directory.pop(0)
+                os.path.remove(self.get_file_path(files_in_dir[0].file_name))
+                files_in_dir.pop(0)
 
             # Move the file from general cache into this cache, now that
             # there's room
