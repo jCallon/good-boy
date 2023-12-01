@@ -218,7 +218,12 @@ class FileCacheList():
             # Get each file name, access time, etc. in self.directory
             files_in_dir = []
             for file_name_in_dir in os.listdir(self.directory):
-                files_in_dir.append(FileCacheElement(file_name_in_dir))
+                files_in_dir.append(
+                    FileCacheElement(
+                        directory = self.directory,
+                        file_name = file_name_in_dir
+                    )
+                )
 
             # Sort file_cache_element_sorted_list by access time,
             # [0] == least recently accessed
