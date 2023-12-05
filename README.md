@@ -15,7 +15,6 @@ But, here's a high level overview of the commands I currently support.
 | `/voice leave`                            | Leave the voice channel you are in.                  |
 | `/voice queue list`                       | List all audio in my queue.                          |
 | `/voice queue remove $id`                 | Remove some audio from my queue.                     |
-| `/voice queue pause $new_val`             | Pause or unpause my audio queue.                     |
 | `/tts play $text`                         | Say specified text on your behalf in voice chat.     |
 | `/tts spoken_name $name`                  | Change the name/pronounciation TTS refers to you by. |
 | `/tts language $language`                 | Change the language/accent TTS speaks in for you.    |
@@ -30,6 +29,7 @@ But, here's a high level overview of the commands I currently support.
 ## Backlog
 | Command                       | Description                                         |
 | ----------------------------- | --------------------------------------------------- |
+| `/voice queue pause $new_val` | Pause or unpause my audio queue.                    |
 | `/library list`               | List the audio in my sound library.                 |
 | `/library volume $new_volume` | Change the volume of future sound library audio.    |
 | `/library play $file`         | Play audio from my sound library in voice chat.     |
