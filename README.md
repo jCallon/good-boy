@@ -24,6 +24,7 @@ But, here's a high level overview of the commands I currently support.
 | `/reminder list`                          | List all reminders.                                  |
 | `/reminder modify $id $what $to`          | Modify an existing reminder.                         |
 | `/reminder remove $id`                    | Remove a reminder.                                   |
+| `/youtube play $url`                      | Play audio from a Youtube video/playlist.            |
 
 
 ## Backlog
@@ -37,10 +38,7 @@ But, here's a high level overview of the commands I currently support.
 | `/library get $file`          | Get audio from my sound library.                    |
 | `/library delete $file`       | Remove audio from my sound library.                 |
 | `/youtube show $url`          | Play video and audio from a Youtube video/playlist. |
-| `/youtube play $url`          | Play audio from a Youtube video/playlist.           |
-| `/youtube volume $new_volume` | Change the volume of future Youtube audio/playlist. |
 | `/spotify play $url`          | Play audio from a Spotify song/playlist.            |
-| `/spotify volume $new_volume` | Change the volume of future Spotify audio/playlist. |
 | `/listen $on_or_off`          | Set whether to be listened to for commands or not.  |
 | `/poll $subject $options`     | Create a basic poll in this text chat.              |
 | `/settings lock start`        | Make me unresponsive to non-admin messages.         |

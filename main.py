@@ -23,6 +23,7 @@ from discord_slash_commands import voice
 from discord_slash_commands import tts
 from discord_slash_commands import permissions
 from discord_slash_commands import reminder
+from discord_slash_commands import youtube
 
 # Import helper for interacting with internal database
 from discord_slash_commands.helpers import sqlite
@@ -49,6 +50,7 @@ discord_bot.add_application_command(voice.voice_slash_command_group)
 discord_bot.add_application_command(tts.tts_slash_command_group)
 discord_bot.add_application_command(permissions.permissions_slash_command_group)
 discord_bot.add_application_command(reminder.reminder_slash_command_group)
+discord_bot.add_application_command(youtube.youtube_slash_command_group)
 
 
 
