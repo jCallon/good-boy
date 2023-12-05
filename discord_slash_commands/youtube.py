@@ -17,9 +17,6 @@ import discord
 # Import functions for asserting bot state
 import discord_slash_commands.helpers.application_context_checks as ctx_check
 
-# Import helper for queueing audio in voice chat
-from discord_slash_commands.helpers import audio_queue
-
 # Import helper for managing new files
 from discord_slash_commands.helpers import file_cache
 
@@ -52,7 +49,7 @@ youtube_slash_command_group = discord.SlashCommandGroup(
 
 
 # From example: https://github.com/ytdl-org/youtube-dl#embedding-youtube-dl
-class YoutubeDlLogger(object):
+class YoutubeDlLogger():
     """Define a logger for youtube-dl.
 
     Define a class to serve as a logger for youtube-dl, which will capture all
@@ -328,8 +325,8 @@ async def youtube_play(
         url: The URL for the YouTube video or playlist to download and play
     """
     # Check validity of URL
-    if (not(url.startswith("https://youtu.be/") or \
-        url.startswith("https://www.youtube.com/playlist?list="))):
+    if not(url.startswith("https://youtu.be/") or \
+        url.startswith("https://www.youtube.com/playlist?list=")):
         await ctx.respond(
             ephemeral=True,
             content="To play a single video, use a URL starting with " \
@@ -410,10 +407,11 @@ async def youtube_play(
             rsp += f"\nError queuing: {youtube_file.url}" \
                 + "\nWill stop adding more audio to my audio queue."
             break
-        else:
-            rsp += f"\nSuccessfully queued: {youtube_file.url} as ID " \
-                + f"`{audio_queue_element_id}`. My audio queue is now " \
-                + f"`{len(audio_queue_list.queue)}` files long."
+
+        # Audio was sucessfully added to queue
+        rsp += f"\nSuccessfully queued: {youtube_file.url} as ID " \
+            + f"`{audio_queue_element_id}`. My audio queue is now " \
+            + f"`{len(audio_queue_list.queue)}` files long."
 
     # Tell author status of all downloading and queuing
     await ctx.respond(ephemeral=True, content=rsp)
