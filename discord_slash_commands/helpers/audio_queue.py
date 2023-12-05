@@ -42,12 +42,12 @@ class AudioQueueElement():
 
     Attributes:
         audio_queue_element_id: An unique integer identifier for distinguishing
-            this AudioQueueElement from others, independent of position in 
+            this AudioQueueElement from others, independent of position in
             AudioQueueList.queue, which may be in constant flux. Used by users
             trying to modify the audio queue.
         author_user_id: The ID of the user who added this AudioQueueElement to
             the AudioQueueList. For users viewing the audio queue.
-        source_command: How this AudioQueueElement was added to 
+        source_command: How this AudioQueueElement was added to
             AudioQueueList.queue. For users viewing the audio queue.
         description: A human-readable description of the content of the audio to
             be played. For users viewing the audio queue. File names are often
@@ -120,7 +120,7 @@ class AudioQueueElement():
         try:
             file_handle = open(self.file_path, "rb")
             file_handle.close()
-        except:
+        except OSError:
             print("WARNING: Audio source for {self.description} was " \
                 + "requested but could not be produced because its file " \
                 + "location, {self.file_path}, could not be opened and read.")
@@ -131,7 +131,7 @@ class AudioQueueElement():
             # vn = disable video
             # sn = disable subtitles
             # ac = number of audio channels
-            # ss = at what timestamp to start audio from 
+            # ss = at what timestamp to start audio from
             # accurate_seek = whether to enable accurate seeking for ss
             return discord.PCMVolumeTransformer(
                 original = discord.FFmpegPCMAudio(
@@ -154,7 +154,6 @@ class AudioQueueElement():
             print("WARNING: Audio source for {self.description} was " \
                 + "requested but could not be produced because it was opus " \
                 + "encoded (using PCM, not opus player).")
-            pass
 
         # An error occurred using the file, no audio source can be created
         return None
@@ -162,7 +161,7 @@ class AudioQueueElement():
 class AudioQueueList(commands.Cog):
     """Define a cog for managing a queue of audio to be played in voice chat.
 
-    Define a Cog with a task to check for outstanding audio to play every 
+    Define a Cog with a task to check for outstanding audio to play every
     second, while handling numerous edge cases, such as pausing, removing
     currently playing audio, and more.
 
@@ -342,7 +341,7 @@ class AudioQueueList(commands.Cog):
     # TODO: enable this
     #def interrupt(self, audio_source: discord.audio_source) -> None:
     #    """Interrupt the current audio queue to play a more important sound.
-    #    
+    #
     #    TODO.
     #    """
     #    # TODO: scenario with multiple interrupts? use differnt audio queue
@@ -353,7 +352,7 @@ class AudioQueueList(commands.Cog):
     # TODO: enable this
     #def volume(self, volume: float) -> bool:
     #    """TODO.
-    #    
+    #
     #    TODO.
     #
     #    Attributes:
@@ -377,7 +376,7 @@ class AudioQueueList(commands.Cog):
     @tasks.loop(seconds=1.0)
     async def play_next(self) -> None:
         """Play the next AudioQueueElement in queue.
-        
+
         Play queue[0] in voice chat unless paused, already playing something,
         or there is nothing to play.
 
@@ -420,14 +419,33 @@ class AudioQueueList(commands.Cog):
 # This code is horrible... Hiding it at the bottom.
 # Anyways, get around not having params with globals.
 global g_audio_queue_list
+g_audio_list = None
 global g_operation
+g_operation = ""
 global g_params
+g_params = ()
 
 def init_play_after(
     audio_queue_list: AudioQueueList,
     operation: str,
     params: tuple
-):
+) -> None:
+    """Set parameters for Discord.VoiceClient.play()'s after function.
+
+    Initialize some global variables that will be used by play_after(), a
+    function meant to be used as the after parameter of
+    Discord.VoiceClient.play(). play()'s after function does not allow for any
+    other parameter than error, so this is the only way I could think of to get
+    around that, and do something very specific after an audio source has
+    exhausted itself.
+
+    Args:
+        audio_queue_list: The audio queue list to do operation on
+        operation: A string describing the operation on audio_queue_list you
+            want to have happen after Discord.VoiceClient.play() finishes.
+        params: A tuple of parameters for the operation, for example, if the
+            operation is to set some value, what to set that value to.
+    """
     global g_audio_queue_list
     global g_operation
     global g_params
@@ -435,7 +453,17 @@ def init_play_after(
     g_operation = operation
     g_params = params
 
-def play_after(error):
+def play_after(error) -> None:
+    """A fine-grained after function for Discord.VoiceClient.play().
+
+    A function meant to be be used as the after parameter of
+    Discord.VoiceClient.play(). What it does is determined by the previous
+    init_play_after() call, to allow very fine-grain control of what happens
+    after an audio source is exhausted.
+
+    Args:
+        error: Any error that occurred during playing play()'s audio source.
+    """
     if error is not None:
         print(error)
 

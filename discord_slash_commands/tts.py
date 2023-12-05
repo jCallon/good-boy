@@ -391,7 +391,7 @@ async def tts_play(
             content = f"Queued `{tts_user_preference.spoken_name}` as ID " \
                 + f"`{name_audio_queue_element_id}`, and `{text_to_say}` as " \
                 + f"ID `{text_audio_queue_element_id}`. My audio queue is " \
-                + f"{len(audio_queue_list.queue)} files long."
+                + f"`{len(audio_queue_list.queue)}` files long."
         )
         return True
     # If the name queued sucessfully, remove it, name and text must queue after
