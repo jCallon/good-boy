@@ -14,7 +14,6 @@ But, here's a high level overview of the commands I currently support.
 | `/voice join`                             | Join the voice channel you are in.                   |
 | `/voice leave`                            | Leave the voice channel you are in.                  |
 | `/voice queue list`                       | List all audio in my queue.                          |
-| `/voice queue pause $new_val`             | Pause or unpause my audio queue.                     |
 | `/voice queue remove $id`                 | Remove some audio from my queue.                     |
 | `/tts play $text`                         | Say specified text on your behalf in voice chat.     |
 | `/tts spoken_name $name`                  | Change the name/pronounciation TTS refers to you by. |
