@@ -254,18 +254,18 @@ TTS_DEFAULT_VOLUME = 2.0
 def make_tts_audio_file(
     text_to_say : str,
     language_to_speak : str
-) -> discord.FFmpegPCMAudio:
-    """Create a Discord-friendly audio source for TTS.
+) -> str:
+    """Download audio for the text_to_say in language_to_speak from gtts.
 
-    Create TTS audio for text_to_say and lanuage_to_speak if it doesn't already
-    exist, then return a Discord-friendly audio source using it.
+    Download TTS audio for text_to_say and language_to_speak if it doesn't
+    already exist, then return the path to the file containing the audio.
 
     Args:
         text_to_say: The text to say in TTS
         language_to_speak: The language to speak text_to_say in
 
     Returns:
-        TODO.
+        A string containing the path to the file containing to TTS audio.
     """
     # Generate file name for text_to_say and language_to_speak
     file_name = tts_file_cache.get_hashed_file_name(
@@ -388,9 +388,10 @@ async def tts_play(
         text_audio_queue_element_id == name_audio_queue_element_id + 1:
         await ctx.respond(
             ephemeral = True,
-            content = f"Queued `{tts_user_preference.spoken_name}` in slot " \
-                + f"`{name_audio_queue_element_id}`, and `{text_to_say}` in " \
-                + f"slot `{text_audio_queue_element_id}`."
+            content = f"Queued `{tts_user_preference.spoken_name}` as ID " \
+                + f"`{name_audio_queue_element_id}`, and `{text_to_say}` as " \
+                + f"ID `{text_audio_queue_element_id}`. My audio queue is " \
+                + f"{len(audio_queue_list.queue)} files long."
         )
         return True
     # If the name queued sucessfully, remove it, name and text must queue after
