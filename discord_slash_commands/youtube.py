@@ -1,4 +1,4 @@
-"""PyCord.SlashCommand for playing YotTube audio in voice chat.
+"""PyCord.SlashCommand for playing YouTube audio in voice chat.
 
 This file defines slash commands for letting a member play audio from YouTube
 videos in their current connected voice chat.
@@ -8,7 +8,7 @@ videos in their current connected voice chat.
 # Import public libraries                                                      #
 #==============================================================================#
 
-# TODO: comment
+# Import interface to interact with YouTube
 import youtube_dl
 
 # Import Discord Python API
@@ -20,7 +20,7 @@ import discord_slash_commands.helpers.application_context_checks as ctx_check
 # Import helper for queueing audio in voice chat
 from discord_slash_commands.helpers import audio_queue
 
-# Import helper for queueing audio in voice chat
+# Import helper for managing new files
 from discord_slash_commands.helpers import file_cache
 
 #==============================================================================#
@@ -30,7 +30,7 @@ from discord_slash_commands.helpers import file_cache
 # Create instance of file cache for Youtube audio files
 youtube_file_cache = file_cache.FileCacheList(
     directory = "youtube",
-    max_size_in_mega_bytes = 100
+    max_bytes = 100 * 1000000
 )
 
 
@@ -106,7 +106,6 @@ class YoutubeDlLogger(object):
             message: The message thrown by youtube-dl
         """
         self.message_list.append(("debug", message))
-        pass
 
     def warning(self, message) -> None:
         """Handler for when youtube-dl throws a warning message.
@@ -118,7 +117,6 @@ class YoutubeDlLogger(object):
             message: The message thrown by youtube-dl
         """
         self.message_list.append(("warning", message))
-        pass
 
     def error(self, message) -> None:
         """Handler for when youtube-dl throws an error message.
@@ -131,7 +129,6 @@ class YoutubeDlLogger(object):
         """
         self.message_list.append(("error", message))
         self.had_error = True
-        pass
 
     def print_log(self) -> None:
         """Print all messages thrown by youtube-dl.
@@ -157,10 +154,10 @@ class YoutubeFile():
     Attributes:
         url: The url of the YouTube video to use youtube-dl to download
         video_file_name: If the url was valid, the name of the video file
-            pointed to by it, stripped of non-ascii chracters.
+            pointed to by it, stripped of non-ASCII characters.
         audio_file_name: video_file_name, but with an mp3 file type instead
         length_in_seconds: An integer containing the length of the YouTube video
-            pointed to by url in seconds.
+            pointed to by url, in seconds.
         logger: A logger instance to hold exactly how the youtube-dl transaction
             to get video_file_name went
     """
@@ -188,7 +185,7 @@ class YoutubeFile():
 
         # For command-line options, see
         # https://github.com/ytdl-org/youtube-dl#options
-        # For embedded options, see
+        # For embedded options, like below, see
         # .../youtube-dl/blob/master/youtube_dl/YoutubeDL.py
         youtube_dl_options = {
             # Do not download the video files
@@ -244,9 +241,10 @@ class YoutubeFile():
     def download(self, directory : str) -> bool:
         """Download the YouTube video pointed to by self.url.
 
-        Try to download the YouTube video pointed to by self.url to directory/
-        self.audio_file_name. youtube-dl will take care of converting the video
-        file to audio and restricting the allowed file size of the download.
+        Try to download the YouTube video pointed to by self.url to
+        directory/self.audio_file_name. youtube-dl will take care of converting
+        the video file to pure audio and restricting the allowed video length
+        of the download.
 
         Args:
             self: This YoutubeFile
@@ -256,7 +254,10 @@ class YoutubeFile():
         self.logger = YoutubeDlLogger()
 
         # Try to download the video file
-        # See https://github.com/ytdl-org/youtube-dl#options
+        # For command-line options, see
+        # https://github.com/ytdl-org/youtube-dl#options
+        # For embedded options, like below, see
+        # .../youtube-dl/blob/master/youtube_dl/YoutubeDL.py
         youtube_dl_options = {
             # Download format with best audio quality
             'format': 'bestaudio/best',
@@ -280,12 +281,12 @@ class YoutubeFile():
                 'preferredcodec': 'mp3',
                 'preferredquality': '192',
             }],
-            # Do not keep the video file after post-processing 
+            # Do not keep the video file after post-processing
             "keepvideo" : False,
             # Catch youtube-dl output in a custom logger class
             "logger" : self.logger,
         }
-        
+
         # Start youtube-dl with youtube_dl_options, if everything went well
         # according to our options, youtube-dl will download the YouTube video
         # at self.url to directory/self.audio_file_name.
@@ -300,7 +301,7 @@ class YoutubeFile():
         # There was no issue and the file was downloaded, return success
         return True
 
-        
+
 
 @youtube_slash_command_group.command(
     name="play",
@@ -345,20 +346,24 @@ async def youtube_play(
 
     # Fill empty list, how many files to play will be determined by if the url
     # was a playlist or a single video
-    youtube_file_list.append(YoutubeFile(url))
-    #is_playlist = "/playlist?" in url
-    #if is_playlist is False:
-    #    youtube_file_list.append(YoutubeFile(url))
-    #else:
-    #    youtube_dl_options = {
-    #        # Do not download the video and do not write anything to disk
-    #        "simulate" : "",
-    #        # Do not extract the videos of a playlist, only list them
-    #        "flat-playlist" : "",
-    #    }
-    #    # Run youtube-dl with youtube_dl_options
-    #    with youtube_dl.YoutubeDL(ydl_opts) as ydl:
-    #        ydl.download(url)
+    if "/playlist?" not in url:
+        youtube_file_list.append(YoutubeFile(url))
+    else:
+        ctx.respond(
+            ephemeral=True,
+            content="Sorry, I don't support playing playlists yet."
+        )
+        return False
+        # TODO: support this
+        #youtube_dl_options = {
+        #    # Do not download the video and do not write anything to disk
+        #    "simulate" : "",
+        #    # Do not extract the videos of a playlist, only list them
+        #    "flat-playlist" : "",
+        #}
+        ## Run youtube-dl with youtube_dl_options
+        #with youtube_dl.YoutubeDL(ydl_opts) as ydl:
+        #    ydl.download(url)
 
     # Tell the user to wait, downloads and file IO take time
     await ctx.respond(
@@ -376,16 +381,18 @@ async def youtube_play(
         # If there was an issue getting information from youtube-dl for this
         # video, tell the author and don't bother downloading or queuing it
         if youtube_file.logger.had_error is True:
-            rsp += f"\nError retrieving: `{youtube_file.url}`"
+            rsp += f"\nError retrieving: {youtube_file.url}"
             continue
 
+        # If even before downloading the video, we can see it's over 30 minutes
+        # long, deny downloading/playing it, and tell author why
         if youtube_file.length_in_seconds > 30*60:
-            rsp += f"\n{youtube_file.url} is longer than my max allowed " \
-                + "video length of 30 minutes."
+            rsp += f"\nRefusing to play: {youtube_file.url}, it's longer " \
+                + "max allowed video length of 30 minutes."
             continue
 
         # Download the audio file for this video if it's not already downloaded
-        if youtube_file_cache.file_exists(youtube_file.audio_file_name) is False:
+        if not youtube_file_cache.file_exists(youtube_file.audio_file_name):
             # Download to intermediate cache, then move to youtube file cache
             if youtube_file.download(file_cache.CACHE_DIR) is False or \
                 youtube_file_cache.add(youtube_file.audio_file_name) is False:
@@ -393,46 +400,21 @@ async def youtube_play(
                 continue
 
         # Add the downloaded file to audio queue
-        audio_queue_index = audio_queue_list.add(
+        audio_queue_element_id = audio_queue_list.add(
             ctx = ctx,
             description = youtube_file.video_file_name,
-            file_path = f"{youtube_file_cache.directory}/{youtube_file.audio_file_name}"
+            file_path = f"{youtube_file_cache.directory}/" \
+                + f"{youtube_file.audio_file_name}"
         )
-        if audio_queue_index == -1:
+        if audio_queue_element_id == -1:
             rsp += f"\nError queuing: {youtube_file.url}" \
                 + "\nWill stop adding more audio to my audio queue."
             break
         else:
-            rsp += f"\nSuccessfully queued: {youtube_file.url} " \
-                + f"in slot `{audio_queue_index}`."
+            rsp += f"\nSuccessfully queued: {youtube_file.url} as ID " \
+                + f"`{audio_queue_element_id}`. My audio queue is now " \
+                + f"`{len(audio_queue_list.queue)}` files long."
 
     # Tell author status of all downloading and queuing
     await ctx.respond(ephemeral=True, content=rsp)
     return True
-
-
-
-#@spotify_slash_command_group.command(
-#    name="play",
-#    description="Play audio from Spotify in voice chat.",
-#    checks=[
-#        ctx_check.assert_bot_is_in_voice_chat,
-#        ctx_check.assert_bot_is_in_same_voice_chat_as_author,
-#    ]
-#)
-#async def spotify_play(
-#    ctx,
-#    url: discord.Option(
-#        str,
-#        description="The URL of the song or playlist you wish to have played."
-#    )
-#):
-#    """Tell bot to play audio from a Spotify song or playlist in voice chat.
-#
-#    Download the YouTube video(s) specified by url into cache, and play them in
-#    voice chat.
-#
-#    Args:
-#        ctx: The context this SlashCommand was called under
-#        url: The URL for the Spotify song or playlist to download and play
-#    """
