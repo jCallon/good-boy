@@ -13,13 +13,13 @@ otherwise interface with audio in voice chat.
 # Import Discord Python API
 import discord
 
-# Import functions for asserting bot state
-import discord_slash_commands.helpers.application_context_checks as ctx_check
-
 # Import Discord extended APIs to create organized lists
 from discord.ext import pages
 
-# TODO: write comment
+# Import functions for asserting bot state
+import discord_slash_commands.helpers.application_context_checks as ctx_check
+
+# Import helper for queueing audio in voice chat
 from discord_slash_commands.helpers import audio_queue
 
 #==============================================================================#
@@ -70,6 +70,7 @@ async def voice_join(ctx):
         return False
 
     # Join the author's voice chat
+    # TODO: Play a high bark on entry
     await ctx.author.voice.channel.connect()
     ctx.bot.add_cog(audio_queue.AudioQueueList(ctx.bot.voice_clients[0]))
     await ctx.respond(
@@ -99,6 +100,7 @@ async def voice_leave(ctx):
         ctx: The context this SlashCommand was called under
     """
     # Leave the author's voice chat
+    # TODO: Play a low bark on exit
     await ctx.voice_client.disconnect()
     ctx.bot.remove_cog("AudioQueueList")
     await ctx.respond(
@@ -110,22 +112,53 @@ async def voice_leave(ctx):
 
 
 
+# TODO: support this
 #@voice_slash_command_group.command(
 #    name="volume",
-#    description="TODO.",
-#    checks=[]
+#    description="Adjust the volume I'm playing at.",
+#    checks=[
+#        ctx_check.assert_bot_is_in_voice_chat,
+#        ctx_check.assert_bot_is_in_same_voice_chat_as_author,
+#    ]
 #)
-#async def voice_volume(ctx):
-#    """TODO.
+#async def voice_volume(
+#    ctx,
+#    new_volume: discord.Option(
+#        float,
+#        description="The new volume to use, ex. 1 = 100%, or normal volume."
+#    )
+#):
+#    """Tell bot to adjust its volume in voice chat.
 #
-#    TODO.
+#    Have the bot adjust the current and forthgoing volume of what it plays to
+#    a (reasonable) value you specify.
 #
 #    Args:
 #        ctx: The context this SlashCommand was called under
-#        TODO
+#        new_volume: The volume you want the bot to play at in voice chat
 #    """
-#    # TODO
-#    await ctx.respond(ephemeral=True, content="")
+#    # Check validity of parameters
+#    if new_volume < audio_queue.MIN_VOLUME or \
+#        new_volume > audio_queue.MAX_VOLUME:
+#        await ctx.respond(
+#            ephemeral=True,
+#            content="I only accept volumes between {audio_queue.MIN_VOLUME} " \
+#                + "({audio_queue.MIN_VOLUME * 100}%) and " \
+#                + "{audio_queue.MAX_VOLUME} ({audio_queue.MAX_VOLUME * 100}%)."
+#        )
+#        return False
+#
+#    # Try to set new volume
+#    audio_queue_list = ctx.bot.get_cog("AudioQueueList")
+#    if audio_queue_list.volume(new_volume) is False:
+#        await ctx.respond(
+#            ephemeral=True,
+#            content="An internal error occured changing my volume."
+#        )
+#        return True
+#    await ctx.respond(
+#        ephemeral=True,
+#        content="I have set my volume to {new_volume} ({new_volume * 100}%).")
 #    return True
 
 
@@ -176,14 +209,15 @@ async def voice_queue_remove(
     # fill in the audio_queue_element_id if None was provided
     audio_queue_list = ctx.bot.get_cog("AudioQueueList")
     if audio_queue_element_id is None:
-        audio_queue_element_id = audio_queue_list.queue[0].audio_queue_element_id
+        audio_queue_element_id = \
+            audio_queue_list.queue[0].audio_queue_element_id
 
     # Try to remove audio_queue_element_id from audio_queue
     if audio_queue_list.remove(audio_queue_element_id) is False:
         await ctx.respond(
             ephemeral=True,
             content="I could not find an item in the audio queue with an ID " \
-                + f"of {audio_queue_element_id}."
+                + f"of `{audio_queue_element_id}`."
         )
         return False
         
@@ -191,45 +225,46 @@ async def voice_queue_remove(
         ephemeral=False,
         delete_after=60,
         content="I removed the audio queue item with an ID of " \
-            + f"{audio_queue_element_id} from my audio queue."
+            + f"`{audio_queue_element_id}` from my audio queue."
     )
     return True
 
 
 
-@voice_queue_slash_command_group.command(
-    name="pause",
-    description="Pause or unpause my audio queue.",
-)
-async def voice_queue_pause(
-    ctx,
-    value: discord.Option(
-        str,
-        description="Whether to start or stop pausing.",
-        choices=["start", "stop"]
-    )
-):
-    """Pause or unpause playing audio in voice chat.
-
-    If starting pause, stop playing audio in voice chat, with the intent to
-    resume the same audio queue, possibly modified, later, from the same spot,
-    if possible. If stopping pause, resume playing audio from the point it was
-    paused, if available, otherwise just what's at the top of audio queue.
-
-    Args:
-        ctx: The context this SlashCommand was called under
-        value: Whether to start or stop pausing audio queue
-    """
-    # Get the audio queue, set whether to pause or unpause it
-    audio_queue_list = ctx.bot.get_cog("AudioQueueList")
-    if value == "start":
-        audio_queue_list.pause()
-        await ctx.respond(ephemeral=True, content="I paused my audio queue.")
-    elif value == "stop":
-        audio_queue_list.unpause()
-        await ctx.respond(ephemeral=True, content="I unpaused my audio queue.")
-
-    return True
+# TODO: support this
+#@voice_queue_slash_command_group.command(
+#    name="pause",
+#    description="Pause or unpause my audio queue.",
+#)
+#async def voice_queue_pause(
+#    ctx,
+#    value: discord.Option(
+#        str,
+#        description="Whether to start or stop pausing.",
+#        choices=["start", "stop"]
+#    )
+#):
+#    """Pause or unpause playing audio in voice chat.
+#
+#    If starting pause, stop playing audio in voice chat, with the intent to
+#    resume the same audio queue, possibly modified, later, from the same spot,
+#    if possible. If stopping pause, resume playing audio from the point it was
+#    paused, if available, otherwise just what's at the top of audio queue.
+#
+#    Args:
+#        ctx: The context this SlashCommand was called under
+#        value: Whether to start or stop pausing audio queue
+#    """
+#    # Get the audio queue, set whether to pause or unpause it
+#    audio_queue_list = ctx.bot.get_cog("AudioQueueList")
+#    if value == "start":
+#        audio_queue_list.pause()
+#        await ctx.respond(ephemeral=True, content="I paused my audio queue.")
+#    elif value == "stop":
+#        audio_queue_list.unpause()
+#        await ctx.respond(ephemeral=True, content="I unpaused my audio queue.")
+#
+#    return True
 
 
 
