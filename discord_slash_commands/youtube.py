@@ -180,8 +180,8 @@ class YoutubeFile():
         self.length_in_seconds = 0
         self.logger = YoutubeDlLogger()
 
-        # TODO: youtube-dl verifies URL isn't mailicious,
-        #      such as a bash command, right?
+        # NOTE: Seems like youtube-dl doesn't allow malicious URL,
+        # such as a bash commands, not 100% sure though
 
         # For command-line options, see
         # https://github.com/ytdl-org/youtube-dl#options
