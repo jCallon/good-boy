@@ -170,7 +170,7 @@ def assert_bot_is_not_playing_audio_in_voice_chat(
             ctx.bot.voice_clients[0].is_playing()),
         "I must not already be playing other audio to use this command." \
             + "\nPlease wait until I finish playing my current audio, or " \
-            + "stop my current audio via `/voice stop`."
+            + "stop my current audio via `/voice queue remove`."
     )
 
 
@@ -290,3 +290,26 @@ def assert_author_is_allowed_to_call_command(
     # TODO: uncomment once feature is enabled
     #return assert_bot_is_accepting_non_admin_commands(ctx)
     return True
+
+
+
+def assert_bot_audio_queue_length_is_non_zero(
+    ctx: discord.ApplicationContext
+) -> bool:
+    """Assert the bot's audio queue length is non-zero.
+
+    Assert the bot has an audio queue (this should only be possible when it is
+    in voice chat) and the length of its audio queue is greater than 0.
+
+    Args:
+        ctx: The context the slash command using this check was called under
+
+    Returns:
+        Whether the check passed.
+    """
+    audio_queue_list = ctx.bot.get_cog("AudioQueueList")
+    return application_context_check(
+        audio_queue_list is not None and len(audio_queue_list.queue) > 0,
+        "There must be audio in my audio queue to use this command." \
+            + "\nI clear my audio queue when I am not in voice chat."
+    )

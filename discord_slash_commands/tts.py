@@ -251,24 +251,23 @@ TTS_DEFAULT_VOLUME = 2.0
 
 
 
-def make_tts_audio_source(
+def make_tts_audio_file(
     text_to_say : str,
     language_to_speak : str
-) -> discord.FFmpegPCMAudio:
-    """Create a Discord-friendly audio source for TTS.
+) -> str:
+    """Download audio for the text_to_say in language_to_speak from gtts.
 
-    Create TTS audio for text_to_say and lanuage_to_speak if it doesn't already
-    exist, then return a Discord-friendly audio source using it.
+    Download TTS audio for text_to_say and language_to_speak if it doesn't
+    already exist, then return the path to the file containing the audio.
 
     Args:
         text_to_say: The text to say in TTS
         language_to_speak: The language to speak text_to_say in
 
     Returns:
-        A discord.FFmpegPCMAudio source pointing to an mp3 created by gtts using
-        text_to_say and language_to_speak.
+        A string containing the path to the file containing to TTS audio.
     """
-    # Get file name for text_to_say and language_to_speak
+    # Generate file name for text_to_say and language_to_speak
     file_name = tts_file_cache.get_hashed_file_name(
         content_to_hash = (text_to_say, language_to_speak),
         file_extension = "mp3"
@@ -284,11 +283,8 @@ def make_tts_audio_source(
         # TODO: error should never happen, but add check anyways
         tts_file_cache.add(file_name)
 
-    # Create discord-friendly audio source from file
-    return discord.FFmpegPCMAudio(
-        source=tts_file_cache.get_file_path(file_name),
-        options=[["volume", TTS_DEFAULT_VOLUME]]
-    )
+    # Return file path with generated audio
+    return tts_file_cache.get_file_path(file_name)
 
 
 
@@ -302,8 +298,7 @@ def make_tts_audio_source(
     guild_only = False,
     checks=[
         ctx_check.assert_bot_is_in_voice_chat,
-        ctx_check.assert_bot_is_in_same_voice_chat_as_author,
-        ctx_check.assert_bot_is_not_playing_audio_in_voice_chat,
+        ctx_check.assert_bot_is_in_same_voice_chat_as_author
     ]
 )
 async def tts_play(
@@ -359,31 +354,60 @@ async def tts_play(
 
     # If we got here, the arguments and bot state should be valid and safe to
     # act upon.
-    # Get the sound for the text and send it to voice chat
 
-    name_audio_source = make_tts_audio_source(
+    # Get/create audio file for name
+    name_audio_file_path = make_tts_audio_file(
         text_to_say=tts_user_preference.spoken_name,
         language_to_speak=tts_user_preference.language
     )
-    text_audio_source = make_tts_audio_source(
+    # Get/create audio file for text
+    text_audio_file_path = make_tts_audio_file(
         text_to_say=text_to_say,
         language_to_speak=tts_user_preference.language
     )
 
-    # Play tts_user_preference.spoken_name then text_to_say
-    audio_queue.set_next_source(
-        voice_client=ctx.bot.voice_clients[0],
-        audio_source=text_audio_source,
-        after_function=None
+    # Pull audio queue
+    audio_queue_list = ctx.bot.get_cog("AudioQueueList")
+    # Queue name
+    name_audio_queue_element_id = audio_queue_list.add(
+        ctx = ctx,
+        description = tts_user_preference.spoken_name,
+        file_path = name_audio_file_path
     )
-    ctx.bot.voice_clients[0].play(
-        source=name_audio_source,
-        after=audio_queue.play_next_source
+    # Queue text
+    text_audio_queue_element_id = audio_queue_list.add(
+        ctx = ctx,
+        description = text_to_say,
+        file_path = text_audio_file_path
     )
 
+    # If both name and text could be added to audio queue successfully,
+    # and in the correct order, everything went well, exit early
+    if name_audio_queue_element_id > -1 and \
+        text_audio_queue_element_id > -1 and \
+        text_audio_queue_element_id == name_audio_queue_element_id + 1:
+        await ctx.respond(
+            ephemeral = True,
+            content = f"Queued `{tts_user_preference.spoken_name}` as ID " \
+                + f"`{name_audio_queue_element_id}`, and `{text_to_say}` as " \
+                + f"ID `{text_audio_queue_element_id}`. My audio queue is " \
+                + f"`{len(audio_queue_list.queue)}` files long."
+        )
+        return True
+    # If the name queued sucessfully, remove it, name and text must queue after
+    # one another
+    if name_audio_queue_element_id > -1:
+        audio_queue.remove(name_audio_queue_id)
+    # If the text queued sucessfully, remove it, name and text must queue after
+    # one another
+    if text_audio_queue_element_id > -1:
+        audio_queue.remove(text_audio_queue_id)
+
+    # Something went wrong in queuing the audio, despite generating the audio
+    # fine, tell author
     await ctx.respond(
-        ephemeral=True,
-        content=f"I'm trying to say \"{text_to_say}\"."
+        ephemeral = True,
+        content = "An internal error occured queuing your name and text_to_say."
     )
     return True
 
