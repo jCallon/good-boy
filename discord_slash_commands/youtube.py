@@ -20,6 +20,9 @@ import discord_slash_commands.helpers.application_context_checks as ctx_check
 # Import helper for managing new files
 from discord_slash_commands.helpers import file_cache
 
+# Import helper for queueing audio in voice chat
+from discord_slash_commands.helpers import audio_queue
+
 #==============================================================================#
 # Define underlying structure                                                  #
 #==============================================================================#
@@ -218,22 +221,9 @@ class YoutubeFile():
             + ".mp3"
 
         # Derive self.length_in_seconds from HH:MM:SS-like timestamp
-        # Ex. 0:52 = 52 seconds
-        # 3:21 = 3 minutes and 21 seconds
-        # 50:24:46 = 50 hours, 24 minutes, and 46 seconds
-        length_timestamp = debug_messages[2]
-        length_timestamp = length_timestamp.split(":")
-        hours = 0
-        minutes = 0
-        seconds = 0
-        if len(length_timestamp) == 3:
-            hours = int(length_timestamp[0])
-            minutes = int(length_timestamp[1])
-            seconds = int(length_timestamp[2])
-        else:
-            minutes = int(length_timestamp[0])
-            seconds = int(length_timestamp[1])
-        self.length_in_seconds = (hours * 60 * 60) + (minutes * 60) + seconds
+        self.length_in_seconds = audio_queue.timestamp_to_seconds(
+            debug_messages[2]
+        )
 
     def download(self, directory : str) -> bool:
         """Download the YouTube video pointed to by self.url.

@@ -9,6 +9,9 @@ improvements.
 # Import libraries                                                             #
 #==============================================================================#
 
+# Import API for doing basic math conversion
+import math
+
 # Import API for keeping track of time
 import time
 
@@ -26,6 +29,68 @@ from discord.ext import commands, tasks
 MAX_AUDIO_QUEUE_LENGTH = 20
 MIN_VOLUME = .5
 MAX_VOLUME = 2
+
+
+def timestamp_to_seconds(timestamp : str) -> int:
+    """Derive seconds from HH:MM:SS-like timestamp.
+    
+    Return the total number of seconds indicated by a HH:MM:SS-like timestamp.
+    Ex. 0:52 = 52 seconds
+    3:21 = 3 minutes and 21 seconds = 201 seconds
+    50:24:46 = 50 hours, 24 minutes, and 46 seconds = 181486 seconds
+
+    Args:
+        timestamp: The HH:MM:SS-like timestamp to parse
+
+    Returns:
+        The total number of seconds in timestamp.
+    """
+    timestamp = timestamp.split(":")
+    hours = 0
+    minutes = 0
+    seconds = 0
+    if len(timestamp) == 3:
+        hours = int(timestamp[0])
+        minutes = int(timestamp[1])
+        seconds = int(timestamp[2])
+    else:
+        minutes = int(timestamp[0])
+        seconds = int(timestamp[1])
+    return (hours * 60 * 60) + (minutes * 60) + seconds
+    
+
+
+def seconds_to_timestamp(total_seconds : int) -> str:
+    """Format seconds into HH:MM:SS-like timestamp.
+
+    Return a HH:MM:SS-like timestamp givan a total number of seconds.
+    Ex. 52 seconds = 0:52
+    201 seconds = 3 minutes and 21 seconds = 3:21
+    181486 seconds = 50 hours, 24 minutes, and 46 seconds = 50:24:46
+
+    Args:
+        total_seconds: 
+
+    Returns:
+        A HH:MM:SS-like timestamp for total_seconds.
+    """
+    # TODO: will this be a problem with repeated pausing / unpausing, where
+    # play_timestamp will not be floored?
+    total_seconds = math.floor(total_seconds)
+    hours = 0
+    while total_seconds > (60 * 60):
+        hours += 1
+        total_seconds -= (60 * 60)
+    minutes = 0
+    while total_seconds > 60:
+        minutes += 1
+        total_seconds -= 60
+    seconds = int(total_seconds)
+
+    timestamp = ""
+    if hours > 0:
+        return f"{hours}:{minutes}" + f"{seconds}".zfill(2)
+    return f"{minutes}:" + f"{seconds}".zfill(2)
 
 
 
@@ -98,8 +163,8 @@ class AudioQueueElement():
 
     def get_audio_source(
         self,
-        volume: int = 1.0,
-        offset: float = 0
+        play_volume: int = 1.0,
+        play_offset: float = 0
     ) -> discord.FFmpegPCMAudio:
         """Create a Discord-friendly audio source for self.file_path.
 
@@ -113,8 +178,14 @@ class AudioQueueElement():
                 playing the audio from.
         """
         # Check validity of arguments
-        if volume < MIN_VOLUME or volume > MAX_VOLUME or offset < 0:
+        if play_volume < MIN_VOLUME or \
+            play_volume > MAX_VOLUME or \
+            play_offset < 0:
             return None
+
+        print(f"play_volume : {play_volume}")
+        print(f"play_offset : {play_offset}")
+        print(f"seconds_to_timestamp(play_offset) : {seconds_to_timestamp(play_offset)}")
 
         # Assert file can be opened and read
         try:
@@ -130,21 +201,13 @@ class AudioQueueElement():
         try:
             # vn = disable video
             # sn = disable subtitles
-            # ac = number of audio channels
             # ss = at what timestamp to start audio from
-            # accurate_seek = whether to enable accurate seeking for ss
             return discord.PCMVolumeTransformer(
                 original = discord.FFmpegPCMAudio(
                     source = self.file_path,
-                    options = [
-                        ('vn'),
-                        ('sn'),
-                        ('ac', 1),
-                        ('ss', offset),
-                        ('accurate_seek', 'enable'),
-                    ]
+                    options = f"-vn -sn -ss {seconds_to_timestamp(play_offset)}"
                 ),
-                volume = volume
+                volume = play_volume
             )
         except TypeError:
             print("WARNING: Audio source for {self.description} was " \
@@ -279,64 +342,42 @@ class AudioQueueList(commands.Cog):
         # Return success
         return True
 
-    # TODO: enable this
-    #def pause(self) -> None:
-    #    """Stop playing audio until unpaused.
-    #
-    #    Pause the audio queue, stopping its current audio and saving its
-    #    progress, so it can be resumed from the same point.
-    #
-    #    Args:
-    #        self: This AudioSourceList
-    #    """
-    #    # If already paused don't do anything
-    #    if self.is_paused is True:
-    #        return
-    #
-    #    # Set is_paused to true so audio does not resume
-    #    self.is_paused = True
-    #
-    #    # Stop currently playing audio and remember its progress
-    #    self.voice_client.stop()
-    #    self.latest_offset += time.time() - self.latest_play_timestamp
+    def pause(self) -> None:
+        """Stop playing audio until unpaused.
+    
+        Pause the audio queue, stopping its current audio and saving its
+        progress, so it can be resumed from the same point.
+    
+        Args:
+            self: This AudioSourceList
+        """
+        # If already paused don't do anything
+        if self.is_paused is True:
+            return
+    
+        # Set is_paused to true so audio does not resume
+        self.is_paused = True
+    
+        # Stop currently playing audio and remember its progress
+        self.voice_client.stop()
+        self.latest_offset += time.time() - self.latest_play_timestamp
 
-    # TODO: enable this
-    #def unpause(self) -> None:
-    #    """Keep playing audio until paused.
-    #
-    #    Unpause the audio queue, restoring its progress, if possible, from when
-    #    it was paused. This may not be possible, if, for example, the audio file
-    #    has been deleted from queue or disk while the bot was paused.
-    #
-    #    Args:
-    #        self: This AudioSourceList
-    #    """
-    #    # If already unpaused don't do anything
-    #    if self.is_paused is False:
-    #        return
-    #
-    #    # If the audio source being played when the queue was paused was
-    #    # deleted, just resume the normal audio queue to pick up the next audio
-    #    if self.paused_audio_was_deleted or len(self.queue) == 0:
-    #        self.paused_audio_was_deleted = False
-    #        self.is_paused = False
-    #        return
-    #
-    #    # Create audio source at previous progress
-    #    # If the file no longer exists or cannot be read, it cannot be resumed
-    #    audio_source = self.queue[0].get_audio_source(
-    #        self.volume,
-    #        self.latest_offset
-    #    )
-    #    if audio_source is None:
-    #        self.is_paused = False
-    #        return
-    #
-    #    # Play audio source, save time of starting play(),
-    #    # afterwards set as unpaused so normal audio queue can resume
-    #    self.latest_play_timestamp = time.time()
-    #    init_play_after(self, "set_is_paused", (False,))
-    #    self.voice_client.play(audio_source, after=play_after)
+    def unpause(self) -> None:
+        """Keep playing audio until paused.
+    
+        Unpause the audio queue, restoring its progress, if possible, from when
+        it was paused. This may not be possible, if, for example, the audio file
+        has been deleted from queue or disk while the bot was paused.
+    
+        Args:
+            self: This AudioSourceList
+        """
+        # If already unpaused don't do anything
+        if self.is_paused is False:
+            return
+    
+        # Resume queue, play_next() should automatically pick up progress
+        self.is_paused = False
 
     # TODO: enable this
     #def interrupt(self, audio_source: discord.audio_source) -> None:
@@ -349,27 +390,38 @@ class AudioQueueList(commands.Cog):
     #    self.pause()
     #    self.voice_client.play(audio_source, after=self.unpause)
 
-    # TODO: enable this
-    #def volume(self, volume: float) -> bool:
-    #    """TODO.
-    #
-    #    TODO.
-    #
-    #    Attributes:
-    #        TODO
-    #
-    #    Return:
-    #        TODO.
-    #    """
-    #    # Change volume going forward, deny if unreasonable
-    #    if volume < .5 or volume > 2:
-    #        return False
-    #    self.volume = volume
-    #
-    #    # If audio is currently playing change its volume
-    #    # TODO
-    #
-    #    return True
+    def change_volume(self, volume: float) -> bool:
+        """Change the volume of current and future audio in this AudioQueueList.
+    
+        Change the volume, for yourself and others, of the audio in this audio
+        queue. This is done by pausing, changing the volume member, and
+        unpausing.
+    
+        Attributes:
+            self: This AudioQueueList
+            volume: The volume to change self.volume to. A float, for example,
+                1.45 = 145%.
+    
+        Return:
+            Whether the operation succeeded. It may not, for example, if the
+            requested volume was unreasonable.
+        """
+        # Change volume going forward, deny if unreasonable
+        if volume < .5 or volume > 2:
+            return False
+
+        # If already paused, simply change volume, the change will be 
+        # automatically picked up whenever this AudioQueueList is unpaused
+        if self.is_paused is True:
+            self.volume = volume
+        # Otherwise, pause, adjust volume, and unpause. The rest of the member
+        # functions will pick up the slack of figuring out what to do.
+        else:
+            self.pause()
+            self.volume = volume
+            self.unpause()
+
+        return True
 
     # NOTE: There's probably a more efficient way to do this, such as with
     # events and listeners
@@ -401,8 +453,8 @@ class AudioQueueList(commands.Cog):
         # Create audio_source
         # If an audio source cannot be created, it must be skipped
         audio_source = self.queue[0].get_audio_source(
-            self.volume,
-            self.latest_offset
+            play_volume = self.volume,
+            play_offset = self.latest_offset
         )
         if audio_source is None:
             self.queue.pop(0)
@@ -459,7 +511,7 @@ def play_after(error) -> None:
     A function meant to be be used as the after parameter of
     Discord.VoiceClient.play(). What it does is determined by the previous
     init_play_after() call, to allow very fine-grain control of what happens
-    after an audio source is exhausted.
+    after an audio source is exhausted or stop()ed.
 
     Args:
         error: Any error that occurred during playing play()'s audio source.
@@ -473,4 +525,10 @@ def play_after(error) -> None:
     if g_operation == "set_is_paused":
         g_audio_queue_list.is_paused = g_params[0]
     elif g_operation == "set_latest_is_finished":
-        g_audio_queue_list.latest_is_finished = g_params[0]
+        # If the audio source was stopped because it is being paused, the
+        # audio source is not finished
+        if g_audio_queue_list.is_paused:
+            g_audio_queue_list.latest_is_finished = False
+        # Otherwise, set it to whatever the parameter is
+        else:
+            g_audio_queue_list.latest_is_finished = g_params[0]
