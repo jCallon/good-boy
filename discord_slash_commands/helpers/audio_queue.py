@@ -33,7 +33,7 @@ MAX_VOLUME = 2
 
 def timestamp_to_seconds(timestamp : str) -> int:
     """Derive seconds from HH:MM:SS-like timestamp.
-    
+
     Return the total number of seconds indicated by a HH:MM:SS-like timestamp.
     Ex. 0:52 = 52 seconds
     3:21 = 3 minutes and 21 seconds = 201 seconds
@@ -64,7 +64,7 @@ def timestamp_to_seconds(timestamp : str) -> int:
         minutes = int(timestamp[0])
         seconds = int(timestamp[1])
     return (hours * 60 * 60) + (minutes * 60) + seconds
-    
+
 
 
 def seconds_to_timestamp(total_seconds : int) -> str:
@@ -77,7 +77,7 @@ def seconds_to_timestamp(total_seconds : int) -> str:
 
     Args:
         total_seconds: The number of seconds to represent in the returned
-            timstamp.
+            timestamp.
 
     Returns:
         A HH:MM:SS-like timestamp for total_seconds.
@@ -348,20 +348,20 @@ class AudioQueueList(commands.Cog):
 
     def pause(self) -> None:
         """Stop playing audio until unpaused.
-    
+
         Pause the audio queue, stopping its current audio and saving its
         progress, so it can be resumed from the same point at a later time.
-    
+
         Args:
             self: This AudioSourceList
         """
         # If already paused don't do anything
         if self.is_paused is True:
             return
-    
+
         # Set is_paused to True so play_next() pauses playing audio
         self.is_paused = True
-    
+
         # If audio is currently playing, stop it, and remember its progress
         if self.voice_client.is_playing():
             self.voice_client.stop()
@@ -369,72 +369,68 @@ class AudioQueueList(commands.Cog):
 
     def unpause(self) -> None:
         """Keep playing audio until paused.
-    
+
         Unpause the audio queue, restoring its progress, if possible, from when
         it was paused. This may not be possible, if, for example, the audio file
         has been deleted from queue or disk while the bot was paused.
-    
+
         Args:
             self: This AudioSourceList
         """
         # If already unpaused don't do anything
         if self.is_paused is False:
             return
-    
+
         # Resume queue, play_next() should automatically pick up progress
         self.is_paused = False
 
     # TODO: Enable this if supporting prioritized audio queues.
     #       I doubt ffmpeg or pycord can support sound mixing?
-    """
-    def interrupt(self, audio_source: discord.audio_source) -> None:
-        ""Interrupt the current audio queue to play a more important sound.
-    
-        TODO.
-        ""
-        # TODO: scenario with multiple interrupts? use differnt audio queue
-        # for higher priority sounds?
-        self.pause()
-        self.voice_client.play(audio_source, after=self.unpause)
-    """
+    #def interrupt(self, audio_source: discord.audio_source) -> None:
+    #    """Interrupt the current audio queue to play a more important sound.
+    #
+    #    TODO.
+    #    """
+    #    # TODO: scenario with multiple interrupts? use differnt audio queue
+    #    # for higher priority sounds?
+    #    self.pause()
+    #    self.voice_client.play(audio_source, after=self.unpause)
 
     # Every user in the call can already independently adjust the bot's volume
     # for themself, this feature may not be necessary, but the (non-functional)
     # code can stick around in case anyone requests it
-    """
-    def change_volume(self, volume: float) -> bool:
-        ""Change the volume of current and future audio in this AudioQueueList.
-    
-        Change the volume, for yourself and others, of the audio in this audio
-        queue. This is done by pausing, changing the volume member, and
-        unpausing.
-    
-        Attributes:
-            self: This AudioQueueList
-            volume: The volume to change self.volume to. A float, for example,
-                1.45 = 145%.
-    
-        Return:
-            Whether the operation succeeded. It may not, for example, if the
-            requested volume was unreasonable.
-        ""
-        # Change volume going forward, deny if unreasonable
-        if volume < .5 or volume > 2:
-            return False
-
-        # If already paused, simply change volume, the change will be 
-        # automatically picked up whenever this AudioQueueList is unpaused
-        if self.is_paused is True:
-            self.volume = volume
-        # Otherwise, pause, adjust volume, and unpause. The rest of the member
-        # functions will pick up the slack of figuring out what to do.
-        else:
-            self.pause()
-            self.volume = volume
-            self.unpause()
-
-        return True
-    """
+    #def change_volume(self, volume: float) -> bool:
+    #   """Change the volume of current and future audio in this AudioQueueList.
+    #
+    #    Change the volume, for yourself and others, of the audio in this audio
+    #    queue. This is done by pausing, changing the volume member, and
+    #    unpausing.
+    #
+    #    Attributes:
+    #        self: This AudioQueueList
+    #        volume: The volume to change self.volume to. A float, for example,
+    #            1.45 = 145%.
+    #
+    #    Return:
+    #        Whether the operation succeeded. It may not, for example, if the
+    #        requested volume was unreasonable.
+    #    """
+    #    # Change volume going forward, deny if unreasonable
+    #    if volume < .5 or volume > 2:
+    #        return False
+    #
+    #    # If already paused, simply change volume, the change will be
+    #    # automatically picked up whenever this AudioQueueList is unpaused
+    #    if self.is_paused is True:
+    #        self.volume = volume
+    #    # Otherwise, pause, adjust volume, and unpause. The rest of the member
+    #    # functions will pick up the slack of figuring out what to do.
+    #    else:
+    #        self.pause()
+    #        self.volume = volume
+    #        self.unpause()
+    #
+    #    return True
 
     # NOTE: There's probably a more efficient way to do this, such as with
     # events and listeners
