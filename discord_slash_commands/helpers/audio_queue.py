@@ -40,11 +40,18 @@ def timestamp_to_seconds(timestamp : str) -> int:
     50:24:46 = 50 hours, 24 minutes, and 46 seconds = 181486 seconds
 
     Args:
-        timestamp: The HH:MM:SS-like timestamp to parse
+        timestamp: The HH:MM:SS-like timestamp to parse.
 
     Returns:
-        The total number of seconds in timestamp.
+        The total number of seconds represented by timestamp.
+
+    Raises:
+        ValueError: Some part of timestamp was an unsupported format and could
+            not be read.
     """
+    # TODO: If ffmpeg supports milliseconds, support parsing them, but remember
+    #       to also support parsing without them, because YouTube only uses
+    #       whole second timestamps.
     timestamp = timestamp.split(":")
     hours = 0
     minutes = 0
@@ -63,19 +70,21 @@ def timestamp_to_seconds(timestamp : str) -> int:
 def seconds_to_timestamp(total_seconds : int) -> str:
     """Format seconds into HH:MM:SS-like timestamp.
 
-    Return a HH:MM:SS-like timestamp givan a total number of seconds.
+    Return a HH:MM:SS-like timestamp given a total number of seconds.
     Ex. 52 seconds = 0:52
     201 seconds = 3 minutes and 21 seconds = 3:21
     181486 seconds = 50 hours, 24 minutes, and 46 seconds = 50:24:46
 
     Args:
-        total_seconds: 
+        total_seconds: The number of seconds to represent in the returned
+            timstamp.
 
     Returns:
         A HH:MM:SS-like timestamp for total_seconds.
     """
-    # TODO: will this be a problem with repeated pausing / unpausing, where
-    # play_timestamp will not be floored?
+    # TODO: This may be a problem with repeated pausing / unpausing, where
+    #       play_timestamp itself is not floored. Does ffmpeg support
+    #       milliseconds in its start time offsets? Does it need a special flag?
     total_seconds = math.floor(total_seconds)
     hours = 0
     while total_seconds > (60 * 60):
@@ -87,7 +96,6 @@ def seconds_to_timestamp(total_seconds : int) -> str:
         total_seconds -= 60
     seconds = int(total_seconds)
 
-    timestamp = ""
     if hours > 0:
         return f"{hours}:{minutes}" + f"{seconds}".zfill(2)
     return f"{minutes}:" + f"{seconds}".zfill(2)
@@ -173,8 +181,8 @@ class AudioQueueElement():
 
         Args:
             self: This AudioQueueElement
-            volume: At what volume to play this audio ((volume * 100)%).
-            offset: How many seconds from the start of an audio to start
+            play_volume: At what volume to play this audio ((volume * 100)%).
+            play_offset: How many seconds from the start of an audio to start
                 playing the audio from.
         """
         # Check validity of arguments
@@ -182,10 +190,6 @@ class AudioQueueElement():
             play_volume > MAX_VOLUME or \
             play_offset < 0:
             return None
-
-        print(f"play_volume : {play_volume}")
-        print(f"play_offset : {play_offset}")
-        print(f"seconds_to_timestamp(play_offset) : {seconds_to_timestamp(play_offset)}")
 
         # Assert file can be opened and read
         try:
@@ -346,7 +350,7 @@ class AudioQueueList(commands.Cog):
         """Stop playing audio until unpaused.
     
         Pause the audio queue, stopping its current audio and saving its
-        progress, so it can be resumed from the same point.
+        progress, so it can be resumed from the same point at a later time.
     
         Args:
             self: This AudioSourceList
@@ -355,12 +359,13 @@ class AudioQueueList(commands.Cog):
         if self.is_paused is True:
             return
     
-        # Set is_paused to true so audio does not resume
+        # Set is_paused to True so play_next() pauses playing audio
         self.is_paused = True
     
-        # Stop currently playing audio and remember its progress
-        self.voice_client.stop()
-        self.latest_offset += time.time() - self.latest_play_timestamp
+        # If audio is currently playing, stop it, and remember its progress
+        if self.voice_client.is_playing():
+            self.voice_client.stop()
+            self.latest_offset += time.time() - self.latest_play_timestamp
 
     def unpause(self) -> None:
         """Keep playing audio until paused.
@@ -379,19 +384,26 @@ class AudioQueueList(commands.Cog):
         # Resume queue, play_next() should automatically pick up progress
         self.is_paused = False
 
-    # TODO: enable this
-    #def interrupt(self, audio_source: discord.audio_source) -> None:
-    #    """Interrupt the current audio queue to play a more important sound.
-    #
-    #    TODO.
-    #    """
-    #    # TODO: scenario with multiple interrupts? use differnt audio queue
-    #    # for higher priority sounds?
-    #    self.pause()
-    #    self.voice_client.play(audio_source, after=self.unpause)
+    # TODO: Enable this if supporting prioritized audio queues.
+    #       I doubt ffmpeg or pycord can support sound mixing?
+    """
+    def interrupt(self, audio_source: discord.audio_source) -> None:
+        ""Interrupt the current audio queue to play a more important sound.
+    
+        TODO.
+        ""
+        # TODO: scenario with multiple interrupts? use differnt audio queue
+        # for higher priority sounds?
+        self.pause()
+        self.voice_client.play(audio_source, after=self.unpause)
+    """
 
+    # Every user in the call can already independently adjust the bot's volume
+    # for themself, this feature may not be necessary, but the (non-functional)
+    # code can stick around in case anyone requests it
+    """
     def change_volume(self, volume: float) -> bool:
-        """Change the volume of current and future audio in this AudioQueueList.
+        ""Change the volume of current and future audio in this AudioQueueList.
     
         Change the volume, for yourself and others, of the audio in this audio
         queue. This is done by pausing, changing the volume member, and
@@ -405,7 +417,7 @@ class AudioQueueList(commands.Cog):
         Return:
             Whether the operation succeeded. It may not, for example, if the
             requested volume was unreasonable.
-        """
+        ""
         # Change volume going forward, deny if unreasonable
         if volume < .5 or volume > 2:
             return False
@@ -422,9 +434,12 @@ class AudioQueueList(commands.Cog):
             self.unpause()
 
         return True
+    """
 
     # NOTE: There's probably a more efficient way to do this, such as with
     # events and listeners
+    # TODO: Use discord.BaseActivity to display statuses of the bot, such as
+    # paused, or the url and progress of what it's playing
     @tasks.loop(seconds=1.0)
     async def play_next(self) -> None:
         """Play the next AudioQueueElement in queue.
