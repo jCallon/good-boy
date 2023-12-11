@@ -112,57 +112,6 @@ async def voice_leave(ctx):
 
 
 
-# TODO: support this
-#@voice_slash_command_group.command(
-#    name="volume",
-#    description="Adjust the volume I'm playing at.",
-#    checks=[
-#        ctx_check.assert_bot_is_in_voice_chat,
-#        ctx_check.assert_bot_is_in_same_voice_chat_as_author,
-#    ]
-#)
-#async def voice_volume(
-#    ctx,
-#    new_volume: discord.Option(
-#        float,
-#        description="The new volume to use, ex. 1 = 100%, or normal volume."
-#    )
-#):
-#    """Tell bot to adjust its volume in voice chat.
-#
-#    Have the bot adjust the current and forthgoing volume of what it plays to
-#    a (reasonable) value you specify.
-#
-#    Args:
-#        ctx: The context this SlashCommand was called under
-#        new_volume: The volume you want the bot to play at in voice chat
-#    """
-#    # Check validity of parameters
-#    if new_volume < audio_queue.MIN_VOLUME or \
-#        new_volume > audio_queue.MAX_VOLUME:
-#        await ctx.respond(
-#            ephemeral=True,
-#            content="I only accept volumes between {audio_queue.MIN_VOLUME} " \
-#                + "({audio_queue.MIN_VOLUME * 100}%) and " \
-#                + "{audio_queue.MAX_VOLUME} ({audio_queue.MAX_VOLUME * 100}%)."
-#        )
-#        return False
-#
-#    # Try to set new volume
-#    audio_queue_list = ctx.bot.get_cog("AudioQueueList")
-#    if audio_queue_list.volume(new_volume) is False:
-#        await ctx.respond(
-#            ephemeral=True,
-#            content="An internal error occured changing my volume."
-#        )
-#        return True
-#    await ctx.respond(
-#        ephemeral=True,
-#        content="I have set my volume to {new_volume} ({new_volume * 100}%).")
-#    return True
-
-
-
 voice_queue_slash_command_group = voice_slash_command_group.create_subgroup(
     name="queue",
     description = "Voice/audio queue commands",
@@ -220,7 +169,7 @@ async def voice_queue_remove(
                 + f"of `{audio_queue_element_id}`."
         )
         return False
-        
+
     await ctx.respond(
         ephemeral=False,
         delete_after=60,
@@ -231,39 +180,91 @@ async def voice_queue_remove(
 
 
 
-# TODO: support this
+@voice_queue_slash_command_group.command(
+    name="pause",
+    description="Pause or unpause my audio queue.",
+)
+async def voice_queue_pause(
+    ctx,
+    action: discord.Option(
+        str,
+        description="Whether to start or stop pausing.",
+        choices=["start", "stop"]
+    )
+):
+    """Pause or unpause playing audio in voice chat.
+
+    If starting pause, stop playing audio in voice chat, with the intent to
+    resume the same audio queue, possibly modified, later, from the same spot,
+    if possible. If stopping pause, resume playing audio from the point it was
+    paused, if available, otherwise just play what's at the top of audio queue.
+
+    Args:
+        ctx: The context this SlashCommand was called under
+        action: Whether to start or stop pausing audio queue
+    """
+    # Get the audio queue, set whether to pause or unpause it
+    audio_queue_list = ctx.bot.get_cog("AudioQueueList")
+    if action == "start":
+        audio_queue_list.pause()
+        await ctx.respond(ephemeral=True, content="I paused my audio queue.")
+    elif action == "stop":
+        audio_queue_list.unpause()
+        await ctx.respond(ephemeral=True, content="I unpaused my audio queue.")
+
+    return True
+
+
+
+# Every user in the call can already independently adjust the bot's volume
+# for themself, this feature may not be necessary, but the (non-functional)
+# code can stick around in case anyone requests it
 #@voice_queue_slash_command_group.command(
-#    name="pause",
-#    description="Pause or unpause my audio queue.",
+#    name="volume",
+#    description="Adjust the volume I'm playing at.",
+#    checks=[
+#        ctx_check.assert_bot_is_in_voice_chat,
+#        ctx_check.assert_bot_is_in_same_voice_chat_as_author,
+#    ]
 #)
-#async def voice_queue_pause(
+#async def voice_volume(
 #    ctx,
-#    value: discord.Option(
-#        str,
-#        description="Whether to start or stop pausing.",
-#        choices=["start", "stop"]
+#    new_volume: discord.Option(
+#        float,
+#        description="The new volume to use, ex. 1 = 100%, or normal volume."
 #    )
 #):
-#    """Pause or unpause playing audio in voice chat.
+#    """Tell bot to adjust its volume in voice chat.
 #
-#    If starting pause, stop playing audio in voice chat, with the intent to
-#    resume the same audio queue, possibly modified, later, from the same spot,
-#    if possible. If stopping pause, resume playing audio from the point it was
-#    paused, if available, otherwise just what's at the top of audio queue.
+#    Have the bot adjust the current and forthgoing volume of what it plays to
+#    a (reasonable) value you specify.
 #
 #    Args:
 #        ctx: The context this SlashCommand was called under
-#        value: Whether to start or stop pausing audio queue
+#        new_volume: The volume you want the bot to play at in voice chat
 #    """
-#    # Get the audio queue, set whether to pause or unpause it
-#    audio_queue_list = ctx.bot.get_cog("AudioQueueList")
-#    if value == "start":
-#        audio_queue_list.pause()
-#        await ctx.respond(ephemeral=True, content="I paused my audio queue.")
-#    elif value == "stop":
-#        audio_queue_list.unpause()
-#        await ctx.respond(ephemeral=True, content="I unpaused my audio queue.")
+#    # Check validity of parameters
+#    if new_volume < audio_queue.MIN_VOLUME or \
+#        new_volume > audio_queue.MAX_VOLUME:
+#        await ctx.respond(
+#            ephemeral=True,
+#            content=f"I only accept volumes between {audio_queue.MIN_VOLUME} " \
+#                + f"({audio_queue.MIN_VOLUME * 100}%) and " \
+#                + f"{audio_queue.MAX_VOLUME} ({audio_queue.MAX_VOLUME * 100}%)."
+#        )
+#        return False
 #
+#    # Try to set new volume
+#    audio_queue_list = ctx.bot.get_cog("AudioQueueList")
+#    if audio_queue_list.change_volume(new_volume) is False:
+#        await ctx.respond(
+#            ephemeral=True,
+#            content="An internal error occured changing my volume."
+#        )
+#        return True
+#    await ctx.respond(
+#        ephemeral=True,
+#        content=f"I have set my volume to {new_volume} ({new_volume * 100}%).")
 #    return True
 
 
