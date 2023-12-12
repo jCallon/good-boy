@@ -292,7 +292,7 @@ class YoutubeFile():
 
 @youtube_slash_command_group.command(
     name="play",
-    description="Play audio from YouTube video in voice chat.",
+    description="Play (normalized) audio from YouTube video in voice chat.",
     checks=[
         ctx_check.assert_bot_is_in_voice_chat,
         ctx_check.assert_bot_is_in_same_voice_chat_as_author,
@@ -304,6 +304,9 @@ async def youtube_play(
         str,
         description="The URL of the video or playlist you wish to have played."
     )
+    # NOTE: Adding a 'normalize' option is theoretically easy, but I don't trust
+    #       users enough to use it responsonsibly and not blow out each other's
+    #       ears... :,)
 ):
     """Tell bot to play audio from a YouTube video or playlist in voice chat.
 
@@ -355,8 +358,8 @@ async def youtube_play(
     # Tell the user to wait, downloads and file IO take time
     await ctx.respond(
         ephemeral=True,
-        content="Please wait... trying to download the single video or " \
-            + f"playlist pointed to by `{url}`. "
+        content="Please wait... trying to download and normalize the single " \
+            + "video or playlist pointed to by `{url}`." \
     )
 
     # Get AudioQueue cog
@@ -382,7 +385,10 @@ async def youtube_play(
         if not youtube_file_cache.file_exists(youtube_file.audio_file_name):
             # Download to intermediate cache, then move to youtube file cache
             if youtube_file.download(file_cache.CACHE_DIR) is False or \
-                youtube_file_cache.add(youtube_file.audio_file_name) is False:
+                youtube_file_cache.add(
+                    file_name = youtube_file.audio_file_name,
+                    normalize_audio = True
+                ) is False:
                 rsp += f"\nError downloading: {youtube_file.url}"
                 continue
 

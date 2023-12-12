@@ -281,7 +281,7 @@ def make_tts_audio_file(
         )
         speech_from_text.save(f"{file_cache.CACHE_DIR}/{file_name}")
         # TODO: error should never happen, but add check anyways
-        tts_file_cache.add(file_name)
+        tts_file_cache.add(file_name = file_name, normalize_audio = True)
 
     # Return file path with generated audio
     return tts_file_cache.get_file_path(file_name)
