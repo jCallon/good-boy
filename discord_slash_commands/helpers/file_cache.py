@@ -177,7 +177,8 @@ class FileCacheList():
 
         After you've downloaded a file in CACHE_DIR, use this function to try
         to add it to the directory at self.directory.
-        Update me.
+        If normalize_audio is True, your file will be normalized, and the
+        original audio will be overwritten by normalized audio.
         If the file matching file_name is larger than self.max_bytes, don't
         allow the file in self.directory and delete it.
         Otherwise, remove every file in self.directory, starting from the least
@@ -190,10 +191,10 @@ class FileCacheList():
             file_name: The name of the file you wish to move to the directory
                 specified by self.directory
             normalize_audio: If file_name is an audio file, whether to use
-                ffmpeg-normalize to normalize its audio. If you're not familiar,
-                for this purpose, normalizing audio is making it a near-constant
-                volume, so it has a smoother listening experience and doesn't
-                surprise anyone with sudden loud bursts.
+                ffmpeg-normalize to normalize its audio. For this purpose,
+                normalizing audio is making it a near-constant volume, so it
+                has a smoother listening experience and doesn't surprise anyone
+                with sudden loud bursts.
 
         Returns:
             Whether the operation was successful. It may not be, for
@@ -206,18 +207,6 @@ class FileCacheList():
         # Assuming you gave a file_name that exists, and you created your
         # cache_directory correctly, these *should* never throw an error
         try:
-            # Assert the file name cannot be harmful (is all non-special ASCII)
-            #safe_file_name = ""
-            #for character in file_name:
-            #    if ord("0") <= ord(character) <= ord("9") or \
-            #        ord("A") <= ord(character) <= ord("Z") or \
-            #        ord("a") <= ord(character) <= ord("z") or \
-            #        character == ".":
-            #        safe_file_name += character
-            #    else:
-            #        safe_file_name += "_"
-            #file_name = safe_file_name
-
             # Normalize the audio via ffmpeg-normalize
             # See: https://github.com/slhck/ffmpeg-normalize/wiki/examples
             if normalize_audio is True:
@@ -227,9 +216,10 @@ class FileCacheList():
                     "ffmpeg-normalize",
                     # Input file
                     f"{CACHE_DIR}/{file_name}",
-                    # Output file
+                    # Use mp3 encoder
                     "-c:a",
                     "libmp3lame",
+                    # Output file
                     "-o",
                     f"{CACHE_DIR}/normalized_{file_name}",
                 ])
