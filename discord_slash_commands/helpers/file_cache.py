@@ -9,6 +9,9 @@ overhead from uneccessary redownloads.
 # Import libraries                                                             #
 #==============================================================================#
 
+# Import API for spawning subprocesses for running command-line prompts
+import subprocess
+
 # Import operating system API for things like moving files
 import os
 
@@ -23,6 +26,8 @@ import binascii
 #==============================================================================#
 
 CACHE_DIR = "cache"
+
+
 
 class FileCacheElement():
     """Define an instance of useful information on a file.
@@ -133,7 +138,9 @@ class FileCacheList():
         byte_array = binascii.hexlify(hashlib.sha3_256(byte_array).digest())
 
         # Return the result, a concatenation of the hash and file_extension
-        return f"{byte_array}.{file_extension}"
+        # (printing byte_array directly prints b'...', remove all but ...)"
+        byte_array_as_str = f"{byte_array}"
+        return f"{byte_array_as_str[2:-1]}.{file_extension}"
 
     def get_file_path(self, file_name: str) -> str:
         """Get the file path of file_name if it were in self.directory.
@@ -165,11 +172,12 @@ class FileCacheList():
         """
         return os.path.isfile(self.get_file_path(file_name))
 
-    def add(self, file_name: str) -> bool:
+    def add(self, file_name: str, normalize_audio : bool) -> bool:
         """Move a file downloaded to cache to self.directory.
 
         After you've downloaded a file in CACHE_DIR, use this function to try
         to add it to the directory at self.directory.
+        Update me.
         If the file matching file_name is larger than self.max_bytes, don't
         allow the file in self.directory and delete it.
         Otherwise, remove every file in self.directory, starting from the least
@@ -181,6 +189,11 @@ class FileCacheList():
             self: This FileCacheList
             file_name: The name of the file you wish to move to the directory
                 specified by self.directory
+            normalize_audio: If file_name is an audio file, whether to use
+                ffmpeg-normalize to normalize its audio. If you're not familiar,
+                for this purpose, normalizing audio is making it a near-constant
+                volume, so it has a smoother listening experience and doesn't
+                surprise anyone with sudden loud bursts.
 
         Returns:
             Whether the operation was successful. It may not be, for
@@ -193,6 +206,43 @@ class FileCacheList():
         # Assuming you gave a file_name that exists, and you created your
         # cache_directory correctly, these *should* never throw an error
         try:
+            # Assert the file name cannot be harmful (is all non-special ASCII)
+            #safe_file_name = ""
+            #for character in file_name:
+            #    if ord("0") <= ord(character) <= ord("9") or \
+            #        ord("A") <= ord(character) <= ord("Z") or \
+            #        ord("a") <= ord(character) <= ord("z") or \
+            #        character == ".":
+            #        safe_file_name += character
+            #    else:
+            #        safe_file_name += "_"
+            #file_name = safe_file_name
+
+            # Normalize the audio via ffmpeg-normalize
+            # See: https://github.com/slhck/ffmpeg-normalize/wiki/examples
+            if normalize_audio is True:
+                # Create a new normalized version of the audio
+                completed_process = subprocess.run([
+                    # Command name
+                    "ffmpeg-normalize",
+                    # Input file
+                    f"{CACHE_DIR}/{file_name}",
+                    # Output file
+                    "-c:a",
+                    "libmp3lame",
+                    "-o",
+                    f"{CACHE_DIR}/normalized_{file_name}",
+                ])
+                if completed_process.returncode != 0:
+                    raise OSError()
+
+                # Overwrite the non-normalized version of the file
+                os.remove(f"{CACHE_DIR}/{file_name}")
+                os.rename(
+                    src = f"{CACHE_DIR}/normalized_{file_name}",
+                    dst = f"{CACHE_DIR}/{file_name}",
+                )
+
             # Get information on the new file
             new_file = FileCacheElement(CACHE_DIR, file_name)
 

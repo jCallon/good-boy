@@ -10,6 +10,7 @@ pip install python-dotenv
 pip install gtts
 pip install python-dateutil
 pip install youtube-dl
+pip3 install ffmpeg-normalize
 
 # If the youtube-dl package on your distribution doesn't work,
 # you can try making a directory in this bot called youtube_dl,

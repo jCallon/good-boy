@@ -196,9 +196,9 @@ class AudioQueueElement():
             file_handle = open(self.file_path, "rb")
             file_handle.close()
         except OSError:
-            print("WARNING: Audio source for {self.description} was " \
+            print(f"WARNING: Audio source for {self.description} was " \
                 + "requested but could not be produced because its file " \
-                + "location, {self.file_path}, could not be opened and read.")
+                + f"location, {self.file_path}, could not be opened and read.")
             return None
 
         # Return audio source, if possible
@@ -214,11 +214,11 @@ class AudioQueueElement():
                 volume = play_volume
             )
         except TypeError:
-            print("WARNING: Audio source for {self.description} was " \
+            print(f"WARNING: Audio source for {self.description} was " \
                 + "requested but could not be produced because it was a " \
                 + "non-audio source.")
         except ClientException:
-            print("WARNING: Audio source for {self.description} was " \
+            print(f"WARNING: Audio source for {self.description} was " \
                 + "requested but could not be produced because it was opus " \
                 + "encoded (using PCM, not opus player).")
 

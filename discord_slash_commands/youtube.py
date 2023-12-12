@@ -382,7 +382,10 @@ async def youtube_play(
         if not youtube_file_cache.file_exists(youtube_file.audio_file_name):
             # Download to intermediate cache, then move to youtube file cache
             if youtube_file.download(file_cache.CACHE_DIR) is False or \
-                youtube_file_cache.add(youtube_file.audio_file_name) is False:
+                youtube_file_cache.add(
+                    file_name = youtube_file.audio_file_name,
+                    normalize_audio = True
+                ) is False:
                 rsp += f"\nError downloading: {youtube_file.url}"
                 continue
 
