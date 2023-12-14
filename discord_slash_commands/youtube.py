@@ -359,7 +359,7 @@ async def youtube_play(
     await ctx.respond(
         ephemeral=True,
         content="Please wait... trying to download and normalize the single " \
-            + "video or playlist pointed to by `{url}`." \
+            + f"video or playlist pointed to by `{url}`." \
     )
 
     # Get AudioQueue cog

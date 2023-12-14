@@ -22,7 +22,6 @@ import discord_slash_commands.helpers.application_context_checks as ctx_check
 #==============================================================================#
 
 # Create RNG slash command group
-# TODO: Rename to random?
 rng_slash_command_group = discord.SlashCommandGroup(
     checks = [ctx_check.assert_author_is_allowed_to_call_command],
     #default_member_permissions = default,

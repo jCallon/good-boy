@@ -103,7 +103,7 @@ async def permission_modify(
     user_permission.user_id = member.id
     user_permission.read(ctx.guild.id, member.id)
 
-    permission_value = True if operation == "add" else False
+    permission_value = operation == "add"
     if permission == "blacklist":
         user_permission.is_blacklisted = permission_value
     elif permission == "admin":
@@ -146,9 +146,9 @@ async def permission_view(
     # Generate condition based on permission
     condition = ""
     if permission == "admin":
-        condition = f"is_admin>0"
+        condition = "is_admin>0"
     elif permission == "blacklist":
-        condition = f"is_blacklisted>0"
+        condition = "is_blacklisted>0"
 
     # Execute SQL query
     status = sqlite.run(

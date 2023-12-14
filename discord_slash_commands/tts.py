@@ -10,15 +10,6 @@ what language you want your text spoken as.
 # Import libraries                                                             #
 #==============================================================================#
 
-# Import operating system API for things like moving files
-import os
-
-# Import API for hashing text in a collision-resistant way
-import hashlib
-
-# Import API for handling ascii strings as binary lists
-import binascii
-
 # Import API for using Google to turn text into speech
 import gtts
 
@@ -40,6 +31,11 @@ from discord_slash_commands.helpers import file_cache
 #==============================================================================#
 # Define underlying structure                                                  #
 #==============================================================================#
+
+# Define some constants for readability and to avoid copy/paste
+MAX_SPOKEN_NAME_LEN = 20
+
+
 
 class TTSUserPreference():
     """Define an instance of info held on a user for TTS.
@@ -334,12 +330,12 @@ async def tts_play(
         return False
 
     # Determine if the author's TTS preferences are still valid
-    # TODO: don't hard-code tts name length limit
     tts_user_preference = TTSUserPreference(ctx)
     tts_user_preference.read(ctx.guild.id, ctx.author.id)
-    if len(tts_user_preference.spoken_name) > 20:
+    if len(tts_user_preference.spoken_name) > MAX_SPOKEN_NAME_LEN:
         err_msg += "\nYour current preferred spoken name, " \
-            + "{tts_user_preference.spoken_name}, must be <=20 characters." \
+            + f"{tts_user_preference.spoken_name}, must be " \
+            + f"<={MAX_SPOKEN_NAME_LEN} characters." \
             + "\nPlease change it via `/tts spoken_name`."
     if tts_user_preference.language not in gtts.lang.tts_langs():
         err_msg += f"\nYour TTS language, {tts_user_preference.language}, is " \
@@ -397,11 +393,11 @@ async def tts_play(
     # If the name queued sucessfully, remove it, name and text must queue after
     # one another
     if name_audio_queue_element_id > -1:
-        audio_queue.remove(name_audio_queue_id)
+        audio_queue_list.remove(name_audio_queue_element_id)
     # If the text queued sucessfully, remove it, name and text must queue after
     # one another
     if text_audio_queue_element_id > -1:
-        audio_queue.remove(text_audio_queue_id)
+        audio_queue_list.remove(text_audio_queue_element_id)
 
     # Something went wrong in queuing the audio, despite generating the audio
     # fine, tell author
@@ -438,8 +434,9 @@ async def tts_spoken_name(
     err_msg = ""
     if len(new_spoken_name) == 0:
         err_msg += "Please give me >0 characters for your preferred name."
-    if len(new_spoken_name) > 20:
-        err_msg += "Please give me a preferred name of <=20 characters."
+    if len(new_spoken_name) > MAX_SPOKEN_NAME_LEN:
+        err_msg += "Please give me a preferred name of " \
+            + f"<={MAX_SPOKEN_NAME_LEN} characters."
 
     # If the author's arguments were invalid,
     # give them verbose error messages and an example to help them
@@ -456,11 +453,11 @@ async def tts_spoken_name(
     tts_user_preference.read(ctx.guild.id, ctx.author.id)
     tts_user_preference.spoken_name = new_spoken_name
     if tts_user_preference.save() is False:
-        # TODO: fill in bot owner
         await ctx.respond(
             ephemeral=True,
             content="Could not save your new preference for unknown reasons."
                 + "\nPlease tell the bot owner, " \
+                + f"<@{user_permission.get_bot_owner_discord_user_id()}>, "
                 + "to look into the issue."
                 + "\nIn the meantime, you can change your nick in the guild "
                 + "you're using this command for to get the same effect."
@@ -520,11 +517,11 @@ async def tts_language(
     tts_user_preference.read(ctx.guild.id, ctx.author.id)
     tts_user_preference.language = new_language
     if tts_user_preference.save() is False:
-        # TODO: fill in bot owner
         await ctx.respond(
             ephemeral=True,
             content="Could not save your new preference for unknown reasons."
                 + "\nPlease tell the bot owner, " \
+                + f"<@{user_permission.get_bot_owner_discord_user_id()}>, "
                 + "to look into the issue."
                 + "\nIn the meantime, you can change your nick in the guild "
                 + "you're using this command for to get the same effect."
