@@ -25,6 +25,8 @@ But, here's a high level overview of the commands I currently support.
 | `/reminder modify $id $what $to`          | Modify an existing reminder.                         |
 | `/reminder remove $id`                    | Remove a reminder.                                   |
 | `/youtube play $url`                      | Play audio from a Youtube video/playlist.            |
+| `/$bot_name kill`                         | Tell me to stop running on all guilds.               |
+| `/$bot_name help`                         | Give helpful links for understanding me.             |
 
 
 ## Backlog
@@ -43,5 +45,4 @@ But, here's a high level overview of the commands I currently support.
 | `/poll $subject $options`     | Create a basic poll in this text chat.              |
 | `/settings lock start`        | Make me unresponsive to non-admin messages.         |
 | `/settings lock stop`         | Make me responsive to non-admin messages.           |
-| `/settings kill`              | Disconnect me from Discord.                         |
 | `/settings get_invite_link`   | Get an invite link for me to join a guild.          |

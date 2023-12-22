@@ -22,8 +22,9 @@ import discord_slash_commands.helpers.user_permission as user_perm
 # Define underlying structure                                                  #
 #==============================================================================#
 
-# Define the name of the bot as displayed to others
+# Define some useful constants to avoid copy/paste
 BOT_NAME = "Silas"
+BOT_REPO = "https://github.com/jCallon/good-boy"
 
 
 
@@ -77,4 +78,35 @@ async def bot_kill(ctx):
 
     # Close the bot's connection to Discord
     await ctx.bot.close()
+    return True
+
+
+
+@bot_slash_command_group.command(
+    name="help",
+    description="Give you more details about me.",
+    checks = [ctx_check.assert_author_is_admin]
+)
+async def bot_help(ctx):
+    """Tell bot give you more information on it.
+
+    Tell the bot to give you more information on it, so you may, for example,
+    see the bot code, command overview, and suggest bug-fixes/improvements.
+
+    Args:
+        ctx: The context this SlashCommand was called under
+    """
+    # Give author a bunch of helpful links that should have up-to-date info
+    await ctx.respond(
+        ephemeral = True,
+        content = f"My owner: <@{user_perm.get_bot_owner_discord_user_id()}>." \
+            + f"\nAdd/see issues and suggestions: {BOT_REPO}/issues" \
+            + f"\nSee my command overview: {BOT_REPO}/blob/main/README.md" \
+            + f"\nSee my code: {BOT_REPO}" \
+            + "\nYou may make, modify, and dispatch your own copy of my code " \
+            + "without anyone's permission. But, to contribute your own " \
+            + "changes to the repo, please make a PR and contact the repo " \
+            + "owner for review. If you don't know what that means, but " \
+            + "still want to help, just email whoever is committing the most."
+    )
     return True
