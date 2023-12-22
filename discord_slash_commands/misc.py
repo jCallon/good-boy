@@ -90,13 +90,13 @@ async def bot_kill(ctx):
 async def bot_help(ctx):
     """Tell bot give you more information on it.
 
-    Tell the bot to give you more information on it. so you may, for example,
-    learn basic flows, see the bot code, and suggest bug-fixes and improvements.
+    Tell the bot to give you more information on it, so you may, for example,
+    see the bot code, command overview, and suggest bug-fixes/improvements.
 
     Args:
         ctx: The context this SlashCommand was called under
     """
-    # Tell the author to tell the bot owner why they called this command
+    # Give author a bunch of helpful links that should have up-to-date info
     await ctx.respond(
         ephemeral = True,
         content = f"My owner: <@{user_perm.get_bot_owner_discord_user_id()}>." \

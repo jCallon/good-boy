@@ -25,8 +25,8 @@ But, here's a high level overview of the commands I currently support.
 | `/reminder modify $id $what $to`          | Modify an existing reminder.                         |
 | `/reminder remove $id`                    | Remove a reminder.                                   |
 | `/youtube play $url`                      | Play audio from a Youtube video/playlist.            |
-| `/bot kill`                               | Disconnect me from Discord.                          |
-| `/bot help`                               | Give usage help to user.                             |
+| `/$bot_name kill`                         | Tell me to stop running on all guilds.               |
+| `/$bot_name help`                         | Give helpful links for understanding me.             |
 
 
 ## Backlog
