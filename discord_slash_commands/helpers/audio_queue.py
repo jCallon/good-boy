@@ -31,11 +31,11 @@ MIN_VOLUME = .5
 MAX_VOLUME = 2
 
 
-def timestamp_to_seconds(timestamp : str) -> int:
+def timestamp_to_seconds(timestamp : str) -> float:
     """Derive seconds from HH:MM:SS-like timestamp.
 
     Return the total number of seconds indicated by a HH:MM:SS-like timestamp.
-    Ex. 0:52 = 52 seconds
+    Ex. 0:52.22 = 52.22 seconds
     3:21 = 3 minutes and 21 seconds = 201 seconds
     50:24:46 = 50 hours, 24 minutes, and 46 seconds = 181486 seconds
 
@@ -49,9 +49,6 @@ def timestamp_to_seconds(timestamp : str) -> int:
         ValueError: Some part of timestamp was an unsupported format and could
             not be read.
     """
-    # TODO: If ffmpeg supports milliseconds, support parsing them, but remember
-    #       to also support parsing without them, because YouTube only uses
-    #       whole second timestamps.
     timestamp = timestamp.split(":")
     hours = 0
     minutes = 0
@@ -59,19 +56,19 @@ def timestamp_to_seconds(timestamp : str) -> int:
     if len(timestamp) == 3:
         hours = int(timestamp[0])
         minutes = int(timestamp[1])
-        seconds = int(timestamp[2])
+        seconds = float(timestamp[2])
     else:
         minutes = int(timestamp[0])
-        seconds = int(timestamp[1])
+        seconds = float(timestamp[1])
     return (hours * 60 * 60) + (minutes * 60) + seconds
 
 
 
-def seconds_to_timestamp(total_seconds : int) -> str:
+def seconds_to_timestamp(total_seconds : float) -> str:
     """Format seconds into HH:MM:SS-like timestamp.
 
     Return a HH:MM:SS-like timestamp given a total number of seconds.
-    Ex. 52 seconds = 0:52
+    Ex. 52.22 seconds = 0:52.22
     201 seconds = 3 minutes and 21 seconds = 3:21
     181486 seconds = 50 hours, 24 minutes, and 46 seconds = 50:24:46
 
@@ -82,10 +79,6 @@ def seconds_to_timestamp(total_seconds : int) -> str:
     Returns:
         A HH:MM:SS-like timestamp for total_seconds.
     """
-    # TODO: This may be a problem with repeated pausing / unpausing, where
-    #       play_timestamp itself is not floored. Does ffmpeg support
-    #       milliseconds in its start time offsets? Does it need a special flag?
-    total_seconds = math.floor(total_seconds)
     hours = 0
     while total_seconds > (60 * 60):
         hours += 1
@@ -94,11 +87,19 @@ def seconds_to_timestamp(total_seconds : int) -> str:
     while total_seconds > 60:
         minutes += 1
         total_seconds -= 60
-    seconds = int(total_seconds)
+    seconds = float(total_seconds)
 
-    if hours > 0:
-        return f"{hours}:{minutes}" + f"{seconds}".zfill(2)
-    return f"{minutes}:" + f"{seconds}".zfill(2)
+    # NOTE: The timestamp outputted will only have 2 decimal places of accuracy.
+    # This is for ffmpeg compatibility (it does not support, say, 10 places)
+    timestamp = ""
+    timestamp += f"{hours}:" if hours > 0 else ""
+    timestamp += f"{minutes}".zfill(2) if hours > 0 else f"{minutes}"
+    timestamp += ":"
+    timestamp += f"{math.floor(seconds)}".zfill(2)
+    timestamp += "." if seconds % 1 != 0 else ""
+    timestamp += f"{math.floor((seconds % 1) * 100)}".zfill(2) \
+        if seconds % 1 != 0 else ""
+    return timestamp
 
 
 
