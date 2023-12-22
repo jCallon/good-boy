@@ -28,6 +28,9 @@ from discord_slash_commands.helpers import sqlite
 # Import helper for managing new files
 from discord_slash_commands.helpers import file_cache
 
+# Import user permissions for each guild
+import discord_slash_commands.helpers.user_permission as user_perm
+
 #==============================================================================#
 # Define underlying structure                                                  #
 #==============================================================================#
@@ -457,7 +460,7 @@ async def tts_spoken_name(
             ephemeral=True,
             content="Could not save your new preference for unknown reasons."
                 + "\nPlease tell the bot owner, " \
-                + f"<@{user_permission.get_bot_owner_discord_user_id()}>, "
+                + f"<@{user_perm.get_bot_owner_discord_user_id()}>, "
                 + "to look into the issue."
                 + "\nIn the meantime, you can change your nick in the guild "
                 + "you're using this command for to get the same effect."
@@ -521,7 +524,7 @@ async def tts_language(
             ephemeral=True,
             content="Could not save your new preference for unknown reasons."
                 + "\nPlease tell the bot owner, " \
-                + f"<@{user_permission.get_bot_owner_discord_user_id()}>, "
+                + f"<@{user_perm.get_bot_owner_discord_user_id()}>, "
                 + "to look into the issue."
                 + "\nIn the meantime, you can change your nick in the guild "
                 + "you're using this command for to get the same effect."
