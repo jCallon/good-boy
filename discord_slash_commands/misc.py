@@ -1,6 +1,8 @@
-"""TODO.
+"""PyCord.SlashCommand for miscellaneous activities.
 
-TODO.
+This file defines slash commands that might not fit in with other slash command
+groups. For example, killing the bot, which doesn't have to do with voice, tts,
+or permissions.
 """
 
 #==============================================================================#
@@ -16,9 +18,6 @@ import discord_slash_commands.helpers.application_context_checks as ctx_check
 # Import user permissions for each guild
 import discord_slash_commands.helpers.user_permission as user_perm
 
-# Import Discord extended APIs to create organized lists
-from discord.ext import pages
-
 #==============================================================================#
 # Define underlying structure                                                  #
 #==============================================================================#
@@ -26,11 +25,13 @@ from discord.ext import pages
 # Define the name of the bot as displayed to others
 BOT_NAME = "Silas"
 
+
+
 # Create slash command group
 bot_slash_command_group = discord.SlashCommandGroup(
     #checks = default,
     #default_member_permissions = default,
-    description = "Miscellaneous commands that affect only me",
+    description = f"Miscellaneous commands that affect only me, {BOT_NAME}",
     #description_localizations = default,
     #guild_ids = default,
     guild_only = True,
@@ -40,9 +41,11 @@ bot_slash_command_group = discord.SlashCommandGroup(
     #parent = default
 )
 
+
+
 @bot_slash_command_group.command(
     name="kill",
-    description="Disconnect me from Discord and stop all my cogs.",
+    description="Tell me to stop running.",
     checks = [ctx_check.assert_author_is_admin]
 )
 async def bot_kill(ctx):
@@ -67,7 +70,7 @@ async def bot_kill(ctx):
     # Stop all cogs, otherwise they may progress things although the bot is
     # effectively dead, such as thinking they've successfully dispatched
     # certain reminders.
-    # Using a for-loop straight on ctx.bot.cogs causes RuntimeError.
+    # (Using a for-loop straight on ctx.bot.cogs causes a RuntimeError.)
     cog_names = ctx.bot.cogs.copy()
     for cog_name in cog_names:
         ctx.bot.remove_cog(cog_name)
