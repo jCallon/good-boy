@@ -141,6 +141,11 @@ async def voice_queue_remove(
         description="ID of audio queue item to skip. " \
             "Leave blank to skip top of queue.",
         default=None
+    ),
+    priority: discord.Option(
+        int,
+        description="The priority level of the audio queue item to skip.",
+        default=0
     )
 ):
     """Tell bot to remove a certain item from its audio queue.
@@ -159,10 +164,10 @@ async def voice_queue_remove(
     audio_queue_list = ctx.bot.get_cog("AudioQueueList")
     if audio_queue_element_id is None:
         audio_queue_element_id = \
-            audio_queue_list.queue[0].audio_queue_element_id
+            audio_queue_list.queue_list[priority][0].audio_queue_element_id
 
     # Try to remove audio_queue_element_id from audio_queue
-    if audio_queue_list.remove(audio_queue_element_id) is False:
+    if audio_queue_list.remove(audio_queue_element_id, priority) is False:
         await ctx.respond(
             ephemeral=True,
             content="I could not find an item in the audio queue with an ID " \
@@ -173,8 +178,9 @@ async def voice_queue_remove(
     await ctx.respond(
         ephemeral=False,
         delete_after=60,
-        content="I removed the audio queue item with an ID of " \
-            + f"`{audio_queue_element_id}` from my audio queue."
+        content=f"I removed the audio queue item with a priority of " \
+            + f"`{priority}` and ID of `{audio_queue_element_id}` from my " \
+            + "audio queue."
     )
     return True
 
@@ -288,10 +294,12 @@ async def voice_queue_list(ctx):
     # AudioQueueElement
     page_list = ["Summary:" \
         + "\n`Audio Queue Element ID: First 50 characters of description`"]
-    for audio_queue_element in audio_queue_list.queue:
-        page_list[0] += f"\n`{audio_queue_element.audio_queue_element_id}: " \
-            + f"{audio_queue_element.description[:49]}`"
-        page_list.append(audio_queue_element.to_str())
+    for queue in reversed(audio_queue_list.queue_list):
+        for audio_queue_element in queue:
+            page_list[0] += \
+                f"\n`{audio_queue_element.audio_queue_element_id}: " \
+                + f"{audio_queue_element.description[:49]}`"
+            page_list.append(audio_queue_element.to_str())
 
     # Return a neat page view of the audio queue
     paginator = pages.Paginator(pages=page_list, loop_pages=False)

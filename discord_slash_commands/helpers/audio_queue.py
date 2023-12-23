@@ -282,7 +282,7 @@ class AudioQueueElement():
         self.is_paused = True
         if voice_client.is_playing():
             voice_client.stop()
-            self.time_played = time.time() - self.time_started_play
+            self.time_played += time.time() - self.time_started_play
 
 
 
@@ -439,7 +439,7 @@ class AudioQueueList(commands.Cog):
 
         # Remove the audio from queue_list, stop it if it's currently playing
         if self.latest_audio == queue[match_index]:
-            self.latest_audio.pause()
+            self.latest_audio.pause(self.voice_client)
         queue.pop(match_index)
 
         # Return success
