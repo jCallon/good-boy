@@ -232,7 +232,7 @@ class AudioQueueElement():
                     options = "-vn -sn -ss " \
                         + f"{seconds_to_timestamp(self.time_played)}"
                 ),
-                volume = play_volume
+                volume = volume
             )
         except TypeError:
             print(f"WARNING: Audio source for {self.description} was " \
@@ -248,7 +248,7 @@ class AudioQueueElement():
         # Play audio source
         try:
             init_play_after(self, "set_is_finished", (True,))
-            self.voice_client.play(audio_source, after=play_after)
+            voice_client.play(audio_source, after=play_after)
         except ClientException:
             print("WARNING: Could not play audio source for " \
                 + f"{self.description} because already the voice connection " \
@@ -324,7 +324,9 @@ class AudioQueueList(commands.Cog):
         """
         self.voice_client = voice_client
         self.num_priority_levels = 3
-        self.queue_list = [[] * self.num_priority_levels]
+        self.queue_list = []
+        for i in range(self.num_priority_levels):
+            self.queue_list.append([])
         self.max_queue_length = 20
         self.latest_audio = None
         self.is_paused = False
@@ -495,7 +497,7 @@ class AudioQueueList(commands.Cog):
         """
         # Remove finished audio from each queue
         for queue in self.queue_list:
-            if queue[0].is_finished:
+            if len(queue) > 0 and queue[0].is_finished:
                 queue.pop(0)
 
         # Don't do anything else if there is nothing to play or we are paused
@@ -504,7 +506,7 @@ class AudioQueueList(commands.Cog):
 
         # Get the highest priority audio
         highest_priority_audio = self.latest_audio
-        for priority in range(self.num_priority_levels - 1, 0):
+        for priority in reversed(range(self.num_priority_levels)):
             if len(self.queue_list[priority]) > 0:
                 highest_priority_audio = self.queue_list[priority][0]
                 break
@@ -517,11 +519,11 @@ class AudioQueueList(commands.Cog):
             # Otherwise, we need to pause the audio currently being played
             else:
                 if self.voice_client.is_playing():
-                    self.latest_audio.pause()
+                    self.latest_audio.pause(self.voice_client)
 
         # Play highest priority audio, if possible, otherwise remove it
         self.latest_audio = highest_priority_audio
-        if self.latest_audio.play(self.volume, self.voice_client) is False:
+        if self.latest_audio.play(self.voice_client, self.volume) is False:
             self.queue.pop(0)
             return
 
