@@ -228,8 +228,6 @@ tts_file_cache = file_cache.FileCacheList(
 
 
 # Create TTS slash command group
-# TODO: make way for users to use TTS while other audio is
-# playing? Seperate TTS bot connection?
 tts_slash_command_group = discord.SlashCommandGroup(
     checks = [ctx_check.assert_author_is_allowed_to_call_command],
     #default_member_permissions = default,

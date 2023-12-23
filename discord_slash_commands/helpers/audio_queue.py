@@ -124,11 +124,11 @@ class AudioQueueElement():
             trying to modify the audio queue.
         author_user_id: The ID of the user who added this AudioQueueElement to
             the AudioQueueList. For users viewing the audio queue.
-        source_command: How this AudioQueueElement was added to
-            AudioQueueList.queue. For users viewing the audio queue.
         description: A human-readable description of the content of the audio to
             be played. For users viewing the audio queue. File names are often
             hashed and not helpful to a user.
+        source_command: How this AudioQueueElement was added to
+            AudioQueueList.queue. For users viewing the audio queue.
         file_path: The path to the file to actually play once it's this
             AudioQueueElement's turn to play in voice chat.
         priority: The priority level of this audio, for example, 0 =
@@ -239,7 +239,7 @@ class AudioQueueElement():
                 + "requested but could not be produced because it was a " \
                 + "non-audio source.")
             return False
-        except ClientException:
+        except discord.ClientException:
             print(f"WARNING: Audio source for {self.description} was " \
                 + "requested but could not be produced because it was opus " \
                 + "encoded (using PCM, not opus player).")
@@ -249,7 +249,7 @@ class AudioQueueElement():
         try:
             init_play_after(self, "set_is_finished", (True,))
             voice_client.play(audio_source, after=play_after)
-        except ClientException:
+        except discord.ClientException:
             print("WARNING: Could not play audio source for " \
                 + f"{self.description} because already the voice connection " \
                 + "was already playing audio or isn't connected.")
@@ -259,12 +259,12 @@ class AudioQueueElement():
                 + f"{self.description} because the audio source or after " \
                 + "is not callable. ")
             return False
-        except OpusNotLoaded:
+        except discord.opus.OpusNotLoaded:
             print("WARNING: Could not play audio source for " \
                 + f"{self.description} because the audio source is Opus " \
                 + "encoded and opus is not loaded.")
             return False
-            
+
         self.time_started_play = time.time()
         self.is_paused = False
         return True
@@ -355,7 +355,7 @@ class AudioQueueList(commands.Cog):
         ctx: discord.ApplicationContext,
         description: str,
         file_path: str,
-        priority: int 
+        priority: int
     ) -> int:
         """Add a new AudioQueueElement to this AudioQueueList.
 
@@ -517,9 +517,7 @@ class AudioQueueList(commands.Cog):
             if self.latest_audio == highest_priority_audio:
                 return
             # Otherwise, we need to pause the audio currently being played
-            else:
-                if self.voice_client.is_playing():
-                    self.latest_audio.pause(self.voice_client)
+            self.latest_audio.pause(self.voice_client)
 
         # Play highest priority audio, if possible, otherwise remove it
         self.latest_audio = highest_priority_audio

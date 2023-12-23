@@ -180,7 +180,7 @@ async def voice_queue_remove(
     await ctx.respond(
         ephemeral=False,
         delete_after=60,
-        content=f"I removed the audio queue item with a priority of " \
+        content="I removed the audio queue item with a priority of " \
             + f"`{priority}` and ID of `{audio_queue_element_id}` from my " \
             + "audio queue."
     )
