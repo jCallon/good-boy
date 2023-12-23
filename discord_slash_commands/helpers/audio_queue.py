@@ -265,12 +265,12 @@ class AudioQueueElement():
             return False
         except TypeError:
             print("WARNING: Could not play audio source for " \
-                + f"{self.description} ({self.file_name}) because the audio " \
+                + f"{self.description} ({self.file_path}) because the audio " \
                 + "source or after is not callable. ")
             return False
         except discord.opus.OpusNotLoaded:
             print("WARNING: Could not play audio source for " \
-                + f"{self.description} ({self.file_name}) because the audio " \
+                + f"{self.description} ({self.file_path}) because the audio " \
                 + "source is Opus encoded and opus is not loaded.")
             return False
 
@@ -292,8 +292,6 @@ class AudioQueueElement():
         if voice_client.is_playing():
             voice_client.stop()
             self.time_played += time.time() - self.time_started_play
-
-
 
 
 class AudioQueueList(commands.Cog):
@@ -464,14 +462,14 @@ class AudioQueueList(commands.Cog):
             and was removed.
         """
         # Get the index of the AudioQueueSource with matching ID and priority
-        match_index = self.get_index_in_queue(audio_queue_element, priority)
+        match_index = self.get_index_in_queue(audio_queue_element_id, priority)
         if match_index == -1:
             return False
 
         # Remove the audio from queue_list, stop it if it's currently playing
-        if self.latest_audio == queue[match_index]:
+        if self.latest_audio == self.queue_list[priority][match_index]:
             self.latest_audio.pause(self.voice_client)
-        queue.pop(match_index)
+        self.queue_list[priority].pop(match_index)
 
         # Return success
         return True
