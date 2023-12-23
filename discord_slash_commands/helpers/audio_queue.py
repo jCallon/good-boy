@@ -26,7 +26,6 @@ from discord.ext import commands, tasks
 #==============================================================================#
 
 # Define some constants to avoid copy/paste
-MAX_AUDIO_QUEUE_LENGTH = 20
 MIN_VOLUME = .5
 MAX_VOLUME = 2
 LOW_PRIORITY = 0
@@ -160,7 +159,8 @@ class AudioQueueElement():
             author_user_id: What to initialize self.author_user_id as
             description: What to initialize self.description as
             source_command: What to initialize self.source_command as
-            file_name: What to initialize self.file_name as
+            file_path: What to initialize self.file_name as
+            priority: What to initialize self.priority as
         """
         self.audio_queue_element_id = audio_queue_element_id
         self.author_user_id = author_user_id
@@ -171,6 +171,7 @@ class AudioQueueElement():
         self.time_started_play = 0.00
         self.time_played = 0.00
         self.is_finished = False
+        self.is_paused = False
 
     def to_str(self) -> None:
         """Convert this AudioQueueElement to a string.
@@ -192,16 +193,21 @@ class AudioQueueElement():
         voice_client: discord.VoiceClient,
         volume: int = 1.0
     ) -> bool:
-        """TODO.
+        """Play this AudioQueueElement in voice_client.
 
-        TODO.
+        Play self.file_path on voice_client at a (volume * 100)% volume.
 
         Args:
-            TODO
+            self: This AudioQueueElement
+            voice_client: What voice client to play self.file_path on
+            volume: At what volume to play self.file_path at.
+                1.0 = 100% = normal volume, 2.0 = 200% = high volume, etc.
+
+        Returns:
+            Whether self.file_path could be successfully played in voice_client.
         """
         # Check validity of arguments
-        if volume < MIN_VOLUME or \
-            volume > MAX_VOLUME:
+        if volume < MIN_VOLUME or volume > MAX_VOLUME:
             return False
 
         # Assert file can be opened and read
@@ -241,7 +247,7 @@ class AudioQueueElement():
 
         # Play audio source
         try:
-            init_play_after(self, "set_finished", (True,))
+            init_play_after(self, "set_is_finished", (True,))
             self.voice_client.play(audio_source, after=play_after)
         except ClientException:
             print("WARNING: Could not play audio source for " \
@@ -260,17 +266,20 @@ class AudioQueueElement():
             return False
             
         self.time_started_play = time.time()
-        self.is_playing = True
+        self.is_paused = False
         return True
 
-    def pause(self, voice_client: discord.VoiceClient):
-        """TODO.
+    def pause(self, voice_client: discord.VoiceClient) -> None:
+        """Pause playing this AudioQueueElement.
 
-        TODO.
+        Stop playing this AudioQueueElement in voice chat, and remember current
+        progress to resume from later.
 
         Args:
-            TODO
+            self: This AudioQueueElement
+            voice_client: What voice client to stop playing on
         """
+        self.is_paused = True
         if voice_client.is_playing():
             voice_client.stop()
             self.time_played = time.time() - self.time_started_play
@@ -286,11 +295,21 @@ class AudioQueueList(commands.Cog):
     currently playing audio, and more.
 
     Attributes:
-        voice_client: The voice client to play audio on
-        num_priority_levels: TODO
-        audio_queue_list: TODO
-        latest_audio: TODO
-        is_paused: TODO
+        voice_client: The discord.VoiceClient to play audio on.
+        num_priority_levels: The number of levels of priority an audio source
+            can have. Higher number = higher priority. Low priority audio is
+            always paused and delayed for as long as it takes to play higher
+            priority audio.
+        queue_list: A list of num_priority_levels lists of AudioQueueElement.
+            queue_list[0] = a list of what audio is queued with a priority of 0.
+            queue_list[0][0] = the AudioQueueElement that's been in priority 0
+            queue the longest, in other words, the audio source that should be
+            played soonest (assmuming higher priority audio isn't
+            queued/playing).
+        max_queue_length: The maximum number of AudioQueueElement to allow
+            across all of queue_list.
+        latest_audio: The audio currently playing or paused in voice chat.
+        is_paused: Whether playing of all audio queues has been paused.
         volume: The current volume to play audio at, for example 1.0 = 100%.
     """
     def __init__(self, voice_client: discord.VoiceClient):
@@ -305,7 +324,8 @@ class AudioQueueList(commands.Cog):
         """
         self.voice_client = voice_client
         self.num_priority_levels = 3
-        self.audio_queue_list = [[] * self.num_priority_levels]
+        self.queue_list = [[] * self.num_priority_levels]
+        self.max_queue_length = 20
         self.latest_audio = None
         self.is_paused = False
         self.volume = 1.0
@@ -314,14 +334,18 @@ class AudioQueueList(commands.Cog):
     def get_num_audio_files_queued(self) -> int:
         """Get the combined length of all this AudioQueueList's audio queues.
 
-        TODO.
+        Get the number of AudioQueueElements in self.queue_list across all
+        priority levels.
 
         Args:
-            TODO
+            self: This AudioQueueElement
+
+        Returns:
+            The number of AudioQueueElement self.queue_list stores.
         """
         num_audio_files_queued = 0
-        for audio_queue in self.audio_queue_list:
-            num_audio_files_queued += len(audio_queue.queue)
+        for queue in self.queue_list:
+            num_audio_files_queued += len(queue)
         return num_audio_files_queued
 
     def add(
@@ -341,28 +365,30 @@ class AudioQueueList(commands.Cog):
             ctx: The ctx of the SlashCommand this function is being called from
             description: A human-readable description of the audio to play
             file_path: The path to the audio file to actually play
-            priority: TODO
+            priority: The priority level of the audio to play. Please use the
+                a constant at the top of this file for better readability
+                (LOW_PRIORITY, MEDIUM_PRIORITY, etc.).
 
         Returns:
             The ID of the element once placed in queue. -1 if it was not placed.
         """
         # Do not allow addition of another audio source if queue is already full
-        if self.get_num_audio_files_queued() >= MAX_AUDIO_QUEUE_LENGTH:
+        if self.get_num_audio_files_queued() >= self.max_queue_length:
             return -1
 
         # The queue to modify depends on the priority
         if priority >= self.num_priority_levels:
             return -1
-        audio_queue = self.audio_queue_list[priority]
+        queue = self.queue_list[priority]
 
         # Generate unique audio_queue_element_id for audio_queue
         audio_queue_element_id = 0
-        if len(audio_queue.queue) > 0:
+        if len(queue) > 0:
             audio_queue_element_id = \
-                (audio_queue.queue[-1].audio_queue_element_id + 1) % 1000
+                (queue[-1].audio_queue_element_id + 1) % 1000
 
         # Add a new AudioQueueElement to this AudioQueueList with unique ID
-        audio_queue.queue.append(
+        queue.append(
             AudioQueueElement(
                 audio_queue_element_id = audio_queue_element_id,
                 author_user_id = ctx.author.id,
@@ -387,7 +413,7 @@ class AudioQueueList(commands.Cog):
         Args:
             self: This AudioQueueList
             audio_queue_element_id: The ID of the AudioQueueElement to remove
-            priority: TODO
+            priority: The priority level of the audio to remove.
 
         Returns:
             Whether the AudioQueueElement asking to be removed could be found
@@ -396,13 +422,12 @@ class AudioQueueList(commands.Cog):
         # The queue to modify depends on the priority
         if priority >= self.num_priority_levels:
             return -1
-        audio_queue = self.audio_queue_list[priority]
+        queue = self.queue_list[priority]
 
         # Find the index in queue of the AudioQueueSource with matching ID
         match_index = -1
-        for i in range(len(audio_queue.queue)):
-            if audio_queue.queue[i].audio_queue_element_id == \
-                audio_queue_element_id:
+        for i in range(len(queue)):
+            if queue[i].audio_queue_element_id == audio_queue_element_id:
                 match_index = i
                 break
 
@@ -410,11 +435,10 @@ class AudioQueueList(commands.Cog):
         if match_index == -1:
             return False
 
-        # Remove the audio from audio_queue
-        # If the match is the audio currently playing...
-        if self.latest_audio == audio_queue.queue[match_index]:
+        # Remove the audio from queue_list, stop it if it's currently playing
+        if self.latest_audio == queue[match_index]:
             self.latest_audio.pause()
-        audio_queue.queue.pop(match_index)
+        queue.pop(match_index)
 
         # Return success
         return True
@@ -470,9 +494,9 @@ class AudioQueueList(commands.Cog):
             self: This AudioQueueList
         """
         # Remove finished audio from each queue
-        for audio_queue in audio_queue_list:
-            if audio_queue.queue[0].is_finished:
-                audio_queue.queue.pop(0)
+        for queue in self.queue_list:
+            if queue[0].is_finished:
+                queue.pop(0)
 
         # Don't do anything else if there is nothing to play or we are paused
         if self.get_num_audio_files_queued() == 0 or self.is_paused is True:
@@ -480,14 +504,14 @@ class AudioQueueList(commands.Cog):
 
         # Get the highest priority audio
         highest_priority_audio = self.latest_audio
-        for i in range(self.num_priority_levels - 1, 0):
-            if len(self.audio_queue_list[i]) > 0:
-                highest_priority_audio = self.audio_queue_list[i].queue[0]
+        for priority in range(self.num_priority_levels - 1, 0):
+            if len(self.queue_list[priority]) > 0:
+                highest_priority_audio = self.queue_list[priority][0]
                 break
 
         # If audio is currently playing...
         if self.voice_client.is_playing():
-            # If it's the highest priority audio, it keep going
+            # If it's the highest priority audio, let it keep going
             if self.latest_audio == highest_priority_audio:
                 return
             # Otherwise, we need to pause the audio currently being played
@@ -495,9 +519,9 @@ class AudioQueueList(commands.Cog):
                 if self.voice_client.is_playing():
                     self.latest_audio.pause()
 
-        # Play highest priority audio
+        # Play highest priority audio, if possible, otherwise remove it
         self.latest_audio = highest_priority_audio
-        if self.latest_audio.play(self.volume) is False:
+        if self.latest_audio.play(self.volume, self.voice_client) is False:
             self.queue.pop(0)
             return
 
@@ -506,7 +530,7 @@ class AudioQueueList(commands.Cog):
 # The after functions of play() not allowing parameters make me sad :(
 # This code is horrible... Hiding it at the bottom.
 # Anyways, get around not having params with globals.
-global g_audio_queue_list
+global g_audio_queue_element
 g_audio_list = None
 global g_operation
 g_operation = ""
@@ -514,7 +538,7 @@ global g_params
 g_params = ()
 
 def init_play_after(
-    audio_queue_list: AudioQueueList,
+    audio_queue_element: AudioQueueElement,
     operation: str,
     params: tuple
 ) -> None:
@@ -528,16 +552,16 @@ def init_play_after(
     exhausted itself.
 
     Args:
-        audio_queue_list: The audio queue list to do operation on
+        audio_queue_element: The AudioQueueElement to do operation on
         operation: A string describing the operation on audio_queue_list you
             want to have happen after Discord.VoiceClient.play() finishes.
         params: A tuple of parameters for the operation, for example, if the
             operation is to set some value, what to set that value to.
     """
-    global g_audio_queue_list
+    global g_audio_queue_element
     global g_operation
     global g_params
-    g_audio_queue_list = audio_queue_list
+    g_audio_queue_element = audio_queue_element
     g_operation = operation
     g_params = params
 
@@ -555,16 +579,14 @@ def play_after(error) -> None:
     if error is not None:
         print(error)
 
-    global g_audio_queue_list
+    global g_audio_queue_element
     global g_operation
     global g_params
-    if g_operation == "set_is_paused":
-        g_audio_queue_list.is_paused = g_params[0]
-    elif g_operation == "set_latest_is_finished":
+    if g_operation == "set_is_finished":
         # If the audio source was stopped because it is being paused, the
         # audio source is not finished
-        if g_audio_queue_list.is_paused:
-            g_audio_queue_list.latest_is_finished = False
+        if g_audio_queue_element.is_paused:
+            g_audio_queue_element.is_finished = False
         # Otherwise, set it to whatever the parameter is
         else:
-            g_audio_queue_list.latest_is_finished = g_params[0]
+            g_audio_queue_element.is_finished = g_params[0]
