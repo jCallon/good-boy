@@ -170,11 +170,13 @@ async def voice_queue_remove(
     if audio_queue_list.remove(audio_queue_element_id, priority) is False:
         await ctx.respond(
             ephemeral=True,
-            content="I could not find an item in the audio queue with an ID " \
-                + f"of `{audio_queue_element_id}`."
+            content="I could not find an item in my audio queue with a " \
+                + f"priority of `{priority}` and an ID of " \
+                + f"`{audio_queue_element_id}`."
         )
         return False
 
+    # TODO: provide description?
     await ctx.respond(
         ephemeral=False,
         delete_after=60,
@@ -293,11 +295,12 @@ async def voice_queue_list(ctx):
     # Make a list of strings, each list element afer the 1st representing an
     # AudioQueueElement
     page_list = ["Summary:" \
-        + "\n`Audio Queue Element ID: First 50 characters of description`"]
+        + "\n`Priority : Audio Queue Element ID : " \
+        + "First 50 characters of description`"]
     for queue in reversed(audio_queue_list.queue_list):
         for audio_queue_element in queue:
-            page_list[0] += \
-                f"\n`{audio_queue_element.audio_queue_element_id}: " \
+            page_list[0] += f"\n`{audio_queue_element.priority} : "\
+                f"{audio_queue_element.audio_queue_element_id} : " \
                 + f"{audio_queue_element.description[:49]}`"
             page_list.append(audio_queue_element.to_str())
 
