@@ -397,8 +397,7 @@ async def youtube_play(
             ctx = ctx,
             description = youtube_file.video_file_name,
             file_path = f"{youtube_file_cache.directory}/" \
-                + f"{youtube_file.audio_file_name}",
-            priority = audio_queue.LOW_PRIORITY
+                + f"{youtube_file.audio_file_name}"
         )
         if audio_queue_element_id == -1:
             rsp += f"\nError queuing: {youtube_file.url}" \

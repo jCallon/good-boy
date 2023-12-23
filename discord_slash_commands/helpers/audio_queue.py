@@ -29,10 +29,6 @@ from discord.ext import commands, tasks
 MAX_AUDIO_QUEUE_LENGTH = 20
 MIN_VOLUME = .5
 MAX_VOLUME = 2
-LOW_PRIORITY = 0
-MEDIUM_PRIORITY = 1
-HIGH_PRIORITY = 2
-
 
 
 def timestamp_to_seconds(timestamp : str) -> float:
@@ -132,13 +128,6 @@ class AudioQueueElement():
             hashed and not helpful to a user.
         file_path: The path to the file to actually play once it's this
             AudioQueueElement's turn to play in voice chat.
-        priority: The priority level of this audio, for example, 0 =
-            LOW_PRIORITY, and 2 = HIGH_PRIORITY.
-        time_started_play: When this audio file last had play() called on it,
-            measured in seconds since the last epoch.
-        time_played: The number of seconds of this audio played in voice chat.
-            Used to know from what timestamp to resume paused audio from.
-        is_finished: Whether this audio source has played until its end.
     """
     def __init__(
         self,
@@ -146,8 +135,7 @@ class AudioQueueElement():
         author_user_id: int = 0,
         description: str = "",
         source_command: str = "",
-        file_path: str = "",
-        priority: int = 0,
+        file_path: str = ""
     ):
         """Initialize this AudioQueueElement.
 
@@ -167,10 +155,6 @@ class AudioQueueElement():
         self.description = description
         self.source_command = source_command
         self.file_path = file_path
-        self.priority = priority
-        self.time_started_play = 0.00
-        self.time_played = 0.00
-        self.is_finished = False
 
     def to_str(self) -> None:
         """Convert this AudioQueueElement to a string.
@@ -184,25 +168,29 @@ class AudioQueueElement():
         return f"\nID: `{self.audio_queue_element_id}`" \
             + f"\nAuthor: <@{self.author_user_id}>" \
             + f"\nDescription: `{self.description}`" \
-            + f"\nSource: `{self.source_command}`" \
-            + f"\nPriority: `{self.priority}`"
+            + f"\nSource: `{self.source_command}`"
 
-    def play(
+    def get_audio_source(
         self,
-        voice_client: discord.VoiceClient,
-        volume: int = 1.0
-    ) -> bool:
-        """TODO.
+        play_volume: int = 1.0,
+        play_offset: float = 0
+    ) -> discord.FFmpegPCMAudio:
+        """Create a Discord-friendly audio source for self.file_path.
 
-        TODO.
+        Create an FFMpegPCMAudio audio source for self.file_path, playing from
+        offset seconds after the start, at (volume * 100)% volume.
 
         Args:
-            TODO
+            self: This AudioQueueElement
+            play_volume: At what volume to play this audio ((volume * 100)%).
+            play_offset: How many seconds from the start of an audio to start
+                playing the audio from.
         """
         # Check validity of arguments
-        if volume < MIN_VOLUME or \
-            volume > MAX_VOLUME:
-            return False
+        if play_volume < MIN_VOLUME or \
+            play_volume > MAX_VOLUME or \
+            play_offset < 0:
+            return None
 
         # Assert file can be opened and read
         try:
@@ -212,19 +200,17 @@ class AudioQueueElement():
             print(f"WARNING: Audio source for {self.description} was " \
                 + "requested but could not be produced because its file " \
                 + f"location, {self.file_path}, could not be opened and read.")
-            return False
+            return None
 
-        # Make audio source, if possible
-        audio_source = None
+        # Return audio source, if possible
         try:
             # vn = disable video
             # sn = disable subtitles
             # ss = at what timestamp to start audio from
-            audio_source = discord.PCMVolumeTransformer(
+            return discord.PCMVolumeTransformer(
                 original = discord.FFmpegPCMAudio(
                     source = self.file_path,
-                    options = "-vn -sn -ss " \
-                        + f"{seconds_to_timestamp(self.time_played)}"
+                    options = f"-vn -sn -ss {seconds_to_timestamp(play_offset)}"
                 ),
                 volume = play_volume
             )
@@ -232,51 +218,13 @@ class AudioQueueElement():
             print(f"WARNING: Audio source for {self.description} was " \
                 + "requested but could not be produced because it was a " \
                 + "non-audio source.")
-            return False
         except ClientException:
             print(f"WARNING: Audio source for {self.description} was " \
                 + "requested but could not be produced because it was opus " \
                 + "encoded (using PCM, not opus player).")
-            return False
 
-        # Play audio source
-        try:
-            init_play_after(self, "set_finished", (True,))
-            self.voice_client.play(audio_source, after=play_after)
-        except ClientException:
-            print("WARNING: Could not play audio source for " \
-                + f"{self.description} because already the voice connection " \
-                + "was already playing audio or isn't connected.")
-            return False
-        except TypeError:
-            print("WARNING: Could not play audio source for " \
-                + f"{self.description} because the audio source or after " \
-                + "is not callable. ")
-            return False
-        except OpusNotLoaded:
-            print("WARNING: Could not play audio source for " \
-                + f"{self.description} because the audio source is Opus " \
-                + "encoded and opus is not loaded.")
-            return False
-            
-        self.time_started_play = time.time()
-        self.is_playing = True
-        return True
-
-    def pause(self, voice_client: discord.VoiceClient):
-        """TODO.
-
-        TODO.
-
-        Args:
-            TODO
-        """
-        if voice_client.is_playing():
-            voice_client.stop()
-            self.time_played = time.time() - self.time_started_play
-
-
-
+        # An error occurred using the file, no audio source can be created
+        return None
 
 class AudioQueueList(commands.Cog):
     """Define a cog for managing a queue of audio to be played in voice chat.
@@ -287,10 +235,17 @@ class AudioQueueList(commands.Cog):
 
     Attributes:
         voice_client: The voice client to play audio on
-        num_priority_levels: TODO
-        audio_queue_list: TODO
-        latest_audio: TODO
-        is_paused: TODO
+        queue: A list of AudioQueueElement to play
+        latest_is_finished: Whether queue[0] has finished playing in its
+            entirety and can be deleted.
+        latest_offset: At what time offset into queue[0] to start playing from.
+            Measured in seconds since the start of the audio file.
+        latest_play_timestamp: At what time play() was last called on queue[0].
+            Measured in seconds since the last epoch.
+        paused_audio_was_deleted: Whether the queue[0] was paused and deleted,
+            meaning it cannot be resumed on unpause.
+        is_paused: Whether the audio queue is currently paused and has stopped
+            playing audio.
         volume: The current volume to play audio at, for example 1.0 = 100%.
     """
     def __init__(self, voice_client: discord.VoiceClient):
@@ -301,35 +256,23 @@ class AudioQueueList(commands.Cog):
 
         Args:
             self: This AudioQueueList
-            voice_client: What to initialize self.voice_client as
+            voice_client: Waht to initialize self.voice_client as
         """
         self.voice_client = voice_client
-        self.num_priority_levels = 3
-        self.audio_queue_list = [[] * self.num_priority_levels]
-        self.latest_audio = None
+        self.queue = []
+        self.latest_is_finished = False
+        self.latest_offset = 0.0
+        self.latest_play_timestamp = 0.0
+        self.paused_audio_was_deleted = False
         self.is_paused = False
         self.volume = 1.0
         self.play_next.start()
-
-    def get_num_audio_files_queued(self) -> int:
-        """Get the combined length of all this AudioQueueList's audio queues.
-
-        TODO.
-
-        Args:
-            TODO
-        """
-        num_audio_files_queued = 0
-        for audio_queue in self.audio_queue_list:
-            num_audio_files_queued += len(audio_queue.queue)
-        return num_audio_files_queued
 
     def add(
         self,
         ctx: discord.ApplicationContext,
         description: str,
-        file_path: str,
-        priority: int 
+        file_path: str
     ) -> int:
         """Add a new AudioQueueElement to this AudioQueueList.
 
@@ -341,44 +284,33 @@ class AudioQueueList(commands.Cog):
             ctx: The ctx of the SlashCommand this function is being called from
             description: A human-readable description of the audio to play
             file_path: The path to the audio file to actually play
-            priority: TODO
 
         Returns:
             The ID of the element once placed in queue. -1 if it was not placed.
         """
         # Do not allow addition of another audio source if queue is already full
-        if self.get_num_audio_files_queued() >= MAX_AUDIO_QUEUE_LENGTH:
+        if len(self.queue) >= MAX_AUDIO_QUEUE_LENGTH:
             return -1
 
-        # The queue to modify depends on the priority
-        if priority >= self.num_priority_levels:
-            return -1
-        audio_queue = self.audio_queue_list[priority]
-
-        # Generate unique audio_queue_element_id for audio_queue
+        # Generate unique audio_queue_element_id
         audio_queue_element_id = 0
-        if len(audio_queue.queue) > 0:
+        if len(self.queue) > 0:
             audio_queue_element_id = \
-                (audio_queue.queue[-1].audio_queue_element_id + 1) % 1000
+                (self.queue[-1].audio_queue_element_id + 1) % 1000
 
         # Add a new AudioQueueElement to this AudioQueueList with unique ID
-        audio_queue.queue.append(
+        self.queue.append(
             AudioQueueElement(
                 audio_queue_element_id = audio_queue_element_id,
                 author_user_id = ctx.author.id,
                 source_command = f"/{ctx.command.qualified_name}",
                 description = description,
-                file_path = file_path,
-                priority = priority
+                file_path = file_path
             )
         )
         return audio_queue_element_id
 
-    def remove(
-        self,
-        audio_queue_element_id: int,
-        priority: int
-    ) -> bool:
+    def remove(self, audio_queue_element_id: int) -> bool:
         """Remove an existing AudioQueueElement from this AudioQueueList.
 
         If an AudioQueueElement matching audio_queue_element_id exists within
@@ -387,34 +319,30 @@ class AudioQueueList(commands.Cog):
         Args:
             self: This AudioQueueList
             audio_queue_element_id: The ID of the AudioQueueElement to remove
-            priority: TODO
 
         Returns:
             Whether the AudioQueueElement asking to be removed could be found
             and was removed.
         """
-        # The queue to modify depends on the priority
-        if priority >= self.num_priority_levels:
-            return -1
-        audio_queue = self.audio_queue_list[priority]
-
         # Find the index in queue of the AudioQueueSource with matching ID
         match_index = -1
-        for i in range(len(audio_queue.queue)):
-            if audio_queue.queue[i].audio_queue_element_id == \
-                audio_queue_element_id:
+        for i in range(len(self.queue)):
+            if self.queue[i].audio_queue_element_id == audio_queue_element_id:
                 match_index = i
                 break
 
-        # If there was no match, there's nothing to delete, fail
+        # If there was no match index, there's nothing to delete, fail
         if match_index == -1:
             return False
 
-        # Remove the audio from audio_queue
-        # If the match is the audio currently playing...
-        if self.latest_audio == audio_queue.queue[match_index]:
-            self.latest_audio.pause()
-        audio_queue.queue.pop(match_index)
+        # If the match is the audio currently playing, need to stop it
+        if match_index == 0:
+            if self.is_paused is True:
+                self.paused_audio_was_deleted = True
+                self.queue.pop(match_index)
+            else:
+                self.voice_client.stop()
+                self.latest_is_finished = True
 
         # Return success
         return True
@@ -436,7 +364,9 @@ class AudioQueueList(commands.Cog):
         self.is_paused = True
 
         # If audio is currently playing, stop it, and remember its progress
-        self.latest_playing.pause()
+        if self.voice_client.is_playing():
+            self.voice_client.stop()
+            self.latest_offset += time.time() - self.latest_play_timestamp
 
     def unpause(self) -> None:
         """Keep playing audio until paused.
@@ -455,6 +385,54 @@ class AudioQueueList(commands.Cog):
         # Resume queue, play_next() should automatically pick up progress
         self.is_paused = False
 
+    # TODO: Enable this if supporting prioritized audio queues.
+    #       I doubt ffmpeg or pycord can support sound mixing?
+    #def interrupt(self, audio_source: discord.audio_source) -> None:
+    #    """Interrupt the current audio queue to play a more important sound.
+    #
+    #    TODO.
+    #    """
+    #    # TODO: scenario with multiple interrupts? use differnt audio queue
+    #    # for higher priority sounds?
+    #    self.pause()
+    #    self.voice_client.play(audio_source, after=self.unpause)
+
+    # Every user in the call can already independently adjust the bot's volume
+    # for themself, this feature may not be necessary, but the (non-functional)
+    # code can stick around in case anyone requests it
+    #def change_volume(self, volume: float) -> bool:
+    #   """Change the volume of current and future audio in this AudioQueueList.
+    #
+    #    Change the volume, for yourself and others, of the audio in this audio
+    #    queue. This is done by pausing, changing the volume member, and
+    #    unpausing.
+    #
+    #    Attributes:
+    #        self: This AudioQueueList
+    #        volume: The volume to change self.volume to. A float, for example,
+    #            1.45 = 145%.
+    #
+    #    Return:
+    #        Whether the operation succeeded. It may not, for example, if the
+    #        requested volume was unreasonable.
+    #    """
+    #    # Change volume going forward, deny if unreasonable
+    #    if volume < .5 or volume > 2:
+    #        return False
+    #
+    #    # If already paused, simply change volume, the change will be
+    #    # automatically picked up whenever this AudioQueueList is unpaused
+    #    if self.is_paused is True:
+    #        self.volume = volume
+    #    # Otherwise, pause, adjust volume, and unpause. The rest of the member
+    #    # functions will pick up the slack of figuring out what to do.
+    #    else:
+    #        self.pause()
+    #        self.volume = volume
+    #        self.unpause()
+    #
+    #    return True
+
     # NOTE: There's probably a more efficient way to do this, such as with
     # events and listeners
     # TODO: Use discord.BaseActivity to display statuses of the bot, such as
@@ -469,37 +447,35 @@ class AudioQueueList(commands.Cog):
         Args:
             self: This AudioQueueList
         """
-        # Remove finished audio from each queue
-        for audio_queue in audio_queue_list:
-            if audio_queue.queue[0].is_finished:
-                audio_queue.queue.pop(0)
+        # Remove finished audio from queue, reset intermediate state
+        if self.latest_is_finished is True:
+            self.queue.pop(0)
+            self.latest_offset = 0
+            self.latest_is_finished = False
 
-        # Don't do anything else if there is nothing to play or we are paused
-        if self.get_num_audio_files_queued() == 0 or self.is_paused is True:
+        # Don't do anything else if:
+        # - There are no audio elements queued
+        # - We are already playing audio
+        # - We are paused
+        if len(self.queue) == 0 or \
+            self.voice_client.is_playing() or \
+            self.is_paused:
             return
 
-        # Get the highest priority audio
-        highest_priority_audio = self.latest_audio
-        for i in range(self.num_priority_levels - 1, 0):
-            if len(self.audio_queue_list[i]) > 0:
-                highest_priority_audio = self.audio_queue_list[i].queue[0]
-                break
-
-        # If audio is currently playing...
-        if self.voice_client.is_playing():
-            # If it's the highest priority audio, it keep going
-            if self.latest_audio == highest_priority_audio:
-                return
-            # Otherwise, we need to pause the audio currently being played
-            else:
-                if self.voice_client.is_playing():
-                    self.latest_audio.pause()
-
-        # Play highest priority audio
-        self.latest_audio = highest_priority_audio
-        if self.latest_audio.play(self.volume) is False:
+        # Create audio_source
+        # If an audio source cannot be created, it must be skipped
+        audio_source = self.queue[0].get_audio_source(
+            play_volume = self.volume,
+            play_offset = self.latest_offset
+        )
+        if audio_source is None:
             self.queue.pop(0)
             return
+
+        # Play audio_source
+        self.latest_play_timestamp = time.time()
+        init_play_after(self, "set_latest_is_finished", (True,))
+        self.voice_client.play(audio_source, after=play_after)
 
 
 

@@ -371,15 +371,13 @@ async def tts_play(
     name_audio_queue_element_id = audio_queue_list.add(
         ctx = ctx,
         description = tts_user_preference.spoken_name,
-        file_path = name_audio_file_path,
-        priority = audio_queue.HIGH_PRIORITY
+        file_path = name_audio_file_path
     )
     # Queue text
     text_audio_queue_element_id = audio_queue_list.add(
         ctx = ctx,
         description = text_to_say,
-        file_path = text_audio_file_path,
-        priority = audio_queue.HIGH_PRIORITY
+        file_path = text_audio_file_path
     )
 
     # If both name and text could be added to audio queue successfully,
