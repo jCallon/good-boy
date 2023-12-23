@@ -138,6 +138,10 @@ class AudioQueueElement():
         time_played: The number of seconds of this audio played in voice chat.
             Used to know from what timestamp to resume paused audio from.
         is_finished: Whether this audio source has played until its end.
+        is_paused: Whether this audio source has stopped playing because it was
+            paused. Used by play's after function to determine whether the audio
+            source stopped because it was finished and it can be removed, or to
+            be paused and later resumed.
     """
     def __init__(
         self,
@@ -159,7 +163,7 @@ class AudioQueueElement():
             author_user_id: What to initialize self.author_user_id as
             description: What to initialize self.description as
             source_command: What to initialize self.source_command as
-            file_path: What to initialize self.file_name as
+            file_path: What to initialize self.file_path as
             priority: What to initialize self.priority as
         """
         self.audio_queue_element_id = audio_queue_element_id
@@ -173,7 +177,7 @@ class AudioQueueElement():
         self.is_finished = False
         self.is_paused = False
 
-    def to_str(self) -> None:
+    def to_str(self) -> str:
         """Convert this AudioQueueElement to a string.
 
         Make a string including each member of this AudioQueueElement, formatted
@@ -181,6 +185,10 @@ class AudioQueueElement():
 
         Args:
             self: This AudioQueueElement
+
+        Returns:
+            A string with a new-line seperated list of all its members a Discord
+            user might care about, in a format convienent to them.
         """
         return f"\nID: `{self.audio_queue_element_id}`" \
             + f"\nAuthor: <@{self.author_user_id}>" \
@@ -236,13 +244,14 @@ class AudioQueueElement():
             )
         except TypeError:
             print(f"WARNING: Audio source for {self.description} was " \
-                + "requested but could not be produced because it was a " \
-                + "non-audio source.")
+                + "requested but could not be produced because its file, " \
+                + f"{self.file_path}, was a non-audio source.")
             return False
         except discord.ClientException:
             print(f"WARNING: Audio source for {self.description} was " \
-                + "requested but could not be produced because it was opus " \
-                + "encoded (using PCM, not opus player).")
+                + "requested but could not be produced because its file, " \
+                + f"{self.file_path}, was opus encoded (and used as a PCM " \
+                + "audio source, not an Opus audio source).")
             return False
 
         # Play audio source
@@ -251,18 +260,18 @@ class AudioQueueElement():
             voice_client.play(audio_source, after=play_after)
         except discord.ClientException:
             print("WARNING: Could not play audio source for " \
-                + f"{self.description} because already the voice connection " \
-                + "was already playing audio or isn't connected.")
+                + f"{self.description} ({self.file_path}) because the voice " \
+                + "connection was already playing audio or isn't connected.")
             return False
         except TypeError:
             print("WARNING: Could not play audio source for " \
-                + f"{self.description} because the audio source or after " \
-                + "is not callable. ")
+                + f"{self.description} ({self.file_name}) because the audio " \
+                + "source or after is not callable. ")
             return False
         except discord.opus.OpusNotLoaded:
             print("WARNING: Could not play audio source for " \
-                + f"{self.description} because the audio source is Opus " \
-                + "encoded and opus is not loaded.")
+                + f"{self.description} ({self.file_name}) because the audio " \
+                + "source is Opus encoded and opus is not loaded.")
             return False
 
         self.time_started_play = time.time()
@@ -350,6 +359,38 @@ class AudioQueueList(commands.Cog):
             num_audio_files_queued += len(queue)
         return num_audio_files_queued
 
+    def get_index_in_queue(
+        self,
+        audio_queue_element_id: int,
+        priority: int
+    ) -> int:
+        """Get AudioQueueElement index with audio_queue_element_id and priority.
+
+        Get the index in self.queue_list[priority] of the AudioQueueElement
+        matching audio_queue_element_id.
+
+        Args:
+            self: This AudioQueueList
+            audio_queue_element_id: The ID of the AudioQueueElement to find.
+            priority: The priority level of the AudioQueueElement to find.
+
+        Returns:
+            The index of the AudioQueueElement matching audio_queue_element_id
+            and priority. -1 if no match was found.
+        """
+        # The queue to view depends on the priority
+        if priority >= self.num_priority_levels:
+            return -1
+        queue = self.queue_list[priority]
+
+        # Find the index in queue of the AudioQueueSource with matching ID
+        for i in range(len(queue)):
+            if queue[i].audio_queue_element_id == audio_queue_element_id:
+                return i
+
+        # No match was found, return failure
+        return -1
+
     def add(
         self,
         ctx: discord.ApplicationContext,
@@ -409,8 +450,9 @@ class AudioQueueList(commands.Cog):
     ) -> bool:
         """Remove an existing AudioQueueElement from this AudioQueueList.
 
-        If an AudioQueueElement matching audio_queue_element_id exists within
-        self.queue, remove it, and stop playing it if it is currently playing.
+        If an AudioQueueElement matching priority and audio_queue_element_id
+        exists within self.queue_list, remove it, and stop playing it if it is
+        currently playing.
 
         Args:
             self: This AudioQueueList
@@ -421,19 +463,8 @@ class AudioQueueList(commands.Cog):
             Whether the AudioQueueElement asking to be removed could be found
             and was removed.
         """
-        # The queue to modify depends on the priority
-        if priority >= self.num_priority_levels:
-            return -1
-        queue = self.queue_list[priority]
-
-        # Find the index in queue of the AudioQueueSource with matching ID
-        match_index = -1
-        for i in range(len(queue)):
-            if queue[i].audio_queue_element_id == audio_queue_element_id:
-                match_index = i
-                break
-
-        # If there was no match, there's nothing to delete, fail
+        # Get the index of the AudioQueueSource with matching ID and priority
+        match_index = self.get_index_in_queue(audio_queue_element, priority)
         if match_index == -1:
             return False
 

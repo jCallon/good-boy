@@ -385,14 +385,18 @@ async def tts_play(
     if name_audio_queue_element_id > -1 and \
         text_audio_queue_element_id > -1 and \
         text_audio_queue_element_id == name_audio_queue_element_id + 1:
-        num_files_ahead = \
-            len(audio_queue_list.queue_list[audio_queue.HIGH_PRIORITY]) - 2
+        num_files_ahead = audio_queue_list.get_index_in_queue(
+            audio_queue_element_id = name_audio_queue_element_id,
+            priority = audio_queue.HIGH_PRIORITY
+        )
         await ctx.respond(
             ephemeral = True,
             content = f"Queued `{tts_user_preference.spoken_name}` as ID " \
                 + f"`{name_audio_queue_element_id}`, and `{text_to_say}` as " \
-                + f"ID `{text_audio_queue_element_id}`. There are " \
-                + f"{num_files_ahead} high-priority audio files ahead of you."
+                + f"ID `{text_audio_queue_element_id}`." \
+                + f"\nThere are {num_files_ahead} other high-priority "
+                + "(priority level {audio_queue.HIGH_PRIORITY}) audio files " \
+                + "ahead of you."
         )
         return True
     # If the name queued sucessfully, remove it, name and text must queue after

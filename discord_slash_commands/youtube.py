@@ -406,12 +406,14 @@ async def youtube_play(
             break
 
         # Audio was sucessfully added to queue
-        num_files_ahead = \
-            len(audio_queue_list.queue_list[audio_queue.LOW_PRIORITY]) - 1
+        num_files_ahead = audio_queue_list.get_index_in_queue(
+            audio_queue_element_id = audio_queue_element_id,
+            priority = audio_queue.LOW_PRIORITY
+        )
         rsp += f"\nSuccessfully queued: {youtube_file.url} as ID " \
             + f"`{audio_queue_element_id}`." \
-            + f"\nThere are {num_files_ahead} low-priority audio files ahead " \
-            + "of you."
+            + f"\nThere are {num_files_ahead} other low-priority (priority " \
+            + "level {audio_queue.LOW_PRIORITY}) audio files ahead of you."
 
     # Tell author status of all downloading and queuing
     await ctx.respond(ephemeral=True, content=rsp)
