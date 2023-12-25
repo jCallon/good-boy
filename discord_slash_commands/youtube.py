@@ -292,7 +292,7 @@ class YoutubeFile():
 
 @youtube_slash_command_group.command(
     name="play",
-    description="Play (normalized) audio from YouTube video in voice chat.",
+    description="Make me play (normalized) audio from YouTube in voice chat.",
     checks=[
         ctx_check.assert_bot_is_in_voice_chat,
         ctx_check.assert_bot_is_in_same_voice_chat_as_author,

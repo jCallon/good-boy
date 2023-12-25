@@ -39,7 +39,7 @@ rng_slash_command_group = discord.SlashCommandGroup(
 
 @rng_slash_command_group.command(
     name="roll",
-    description="Roll a random number."
+    description="Make me roll you a random number."
 )
 async def rng_roll(
     ctx,
@@ -100,7 +100,7 @@ async def rng_roll(
 # Define function for letting user pick an option out of a list
 @rng_slash_command_group.command(
     name="pick",
-    description="Pick one or more random items from a list."
+    description="Make me pick one or more random items from a list."
 )
 async def rng_pick(
     ctx,
