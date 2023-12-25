@@ -124,7 +124,7 @@ async def permission_modify(
 
 @permissions_slash_command_group.command(
     name="view",
-    description="See who has what permissions has over me in this guild."
+    description="See who has what permissions over me in this guild."
 )
 async def permission_view(
     ctx,

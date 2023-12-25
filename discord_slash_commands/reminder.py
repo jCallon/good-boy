@@ -392,7 +392,7 @@ reminder_slash_command_group = discord.SlashCommandGroup(
 
 @reminder_slash_command_group.command(
     name="add",
-    description="Add a reminder for yourself to print later in this channel.",
+    description="Make me remind you of something later (using this channel).",
 )
 async def reminder_add(
     ctx,
@@ -524,7 +524,7 @@ async def reminder_add(
 
 @reminder_slash_command_group.command(
     name="remove",
-    description="Remove a reminder."
+    description="Remove a reminder I have for you or someone you admin here."
 )
 async def reminder_remove(
     ctx,
@@ -585,7 +585,7 @@ async def reminder_remove(
 
 @reminder_slash_command_group.command(
     name="modify",
-    description="Modify a reminder."
+    description="Modify a reminder I have for you."
 )
 async def reminder_modify(
     ctx,
@@ -683,7 +683,7 @@ async def reminder_modify(
 
 @reminder_slash_command_group.command(
     name="list",
-    description="List reminders you can view (yours and users you admin here)."
+    description="List my outstanding reminders for you and who you admin here."
 )
 async def reminder_list(ctx):
     """Tell bot to list reminders.

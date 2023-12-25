@@ -291,7 +291,7 @@ def make_tts_audio_file(
 # NOTE: gtts' write_to_fp() theoretically avoids writing to file?
 @tts_slash_command_group.command(
     name="play",
-    description="Say specified text on your behalf in voice chat.",
+    description="Make me say certain text on your behalf in your voice chat.",
     guild_only = False,
     checks=[
         ctx_check.assert_bot_is_in_voice_chat,
@@ -420,7 +420,7 @@ async def tts_play(
 
 @tts_slash_command_group.command(
     name="spoken_name",
-    description="Change the name/pronounciation TTS uses for you in this guild."
+    description="Change the text I use to pronounce your name for TTS here."
 )
 async def tts_spoken_name(
     ctx,
@@ -482,7 +482,7 @@ async def tts_spoken_name(
 
 @tts_slash_command_group.command(
     name="language",
-    description="Change the language/accent TTS speaks for you in this guild."
+    description="Change the language/accent I speak in for you for TTS here."
 )
 async def tts_language(
     ctx,
