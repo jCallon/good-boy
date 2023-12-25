@@ -441,6 +441,8 @@ class AudioQueueList(commands.Cog):
         )
         return audio_queue_element_id
 
+    # TODO: Remove all audio from a certain member
+    #       when they leave or are blacklisted?
     def remove(
         self,
         audio_queue_element_id: int,
