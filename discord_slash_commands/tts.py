@@ -205,7 +205,7 @@ class TTSUserPreference():
 
         # If there was no match, return failure and don't change this
         # TTSUserPreference's members
-        if status.success is False:
+        if status.success is False or len(status.result) == 0:
             return False
 
         # There was a match, overwrite this TTSUserPreference's members with
@@ -394,9 +394,9 @@ async def tts_play(
             content = f"Queued `{tts_user_preference.spoken_name}` as ID " \
                 + f"`{name_audio_queue_element_id}`, and `{text_to_say}` as " \
                 + f"ID `{text_audio_queue_element_id}`." \
-                + f"\nThere are {num_files_ahead} other high-priority "
-                + "(priority level {audio_queue.HIGH_PRIORITY}) audio files " \
-                + "ahead of you."
+                + f"\nThere are `{num_files_ahead}` other high-priority "
+                + f"(priority level `{audio_queue.HIGH_PRIORITY}`) audio " \
+                + "files ahead of you."
         )
         return True
     # If the name queued sucessfully, remove it, name and text must queue after
