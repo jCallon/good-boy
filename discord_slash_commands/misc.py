@@ -47,7 +47,8 @@ bot_slash_command_group = discord.SlashCommandGroup(
 @bot_slash_command_group.command(
     name="kill",
     description="Tell me to stop running.",
-    checks = [ctx_check.assert_author_is_admin]
+    # TODO: Re-enable this once permissions are properly tested and debugged
+    #checks = [ctx_check.assert_author_is_admin]
 )
 async def bot_kill(ctx):
     """Tell bot to close its connection to Discord and stop all its cogs.
@@ -84,8 +85,7 @@ async def bot_kill(ctx):
 
 @bot_slash_command_group.command(
     name="help",
-    description="Give you more details about me.",
-    checks = [ctx_check.assert_author_is_admin]
+    description="Give you more details about me."
 )
 async def bot_help(ctx):
     """Tell bot give you more information on it.

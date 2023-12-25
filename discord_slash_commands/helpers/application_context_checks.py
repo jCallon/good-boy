@@ -264,6 +264,10 @@ def assert_author_is_allowed_to_call_command(
     Returns:
         Whether the check passed.
     """
+    return True
+
+    # TODO: Uncomment once permissions are properly tested and debugged
+    """
     # The bot owner can do anything they want with the bot
     if ctx.author.id == user_perm.get_bot_owner_discord_user_id():
         return True
@@ -290,6 +294,7 @@ def assert_author_is_allowed_to_call_command(
     # TODO: uncomment once feature is enabled
     #return assert_bot_is_accepting_non_admin_commands(ctx)
     return True
+    """
 
 
 

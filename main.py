@@ -49,8 +49,9 @@ discord_bot = discord.Bot(intents=discord.Intents.default())
 discord_bot.add_application_command(rng.rng_slash_command_group)
 discord_bot.add_application_command(voice.voice_slash_command_group)
 discord_bot.add_application_command(tts.tts_slash_command_group)
-discord_bot.add_application_command(permissions.permissions_slash_command_group)
-discord_bot.add_application_command(reminder.reminder_slash_command_group)
+# TODO: Re-enable these once they are properly tested and debugged
+#discord_bot.add_application_command(permissions.permissions_slash_command_group)
+#discord_bot.add_application_command(reminder.reminder_slash_command_group)
 discord_bot.add_application_command(youtube.youtube_slash_command_group)
 discord_bot.add_application_command(misc.bot_slash_command_group)
 
