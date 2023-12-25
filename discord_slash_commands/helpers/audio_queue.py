@@ -493,7 +493,7 @@ class AudioQueueList(commands.Cog):
         self.is_paused = True
 
         # If audio is currently playing, stop it, and remember its progress
-        self.latest_playing.pause()
+        self.latest_audio.pause(self.voice_client)
 
     def unpause(self) -> None:
         """Keep playing audio until paused.
