@@ -309,7 +309,8 @@ def assert_bot_audio_queue_length_is_non_zero(
     """
     audio_queue_list = ctx.bot.get_cog("AudioQueueList")
     return application_context_check(
-        audio_queue_list is not None and len(audio_queue_list.queue) > 0,
+        audio_queue_list is not None and \
+            audio_queue_list.get_num_audio_files_queued() > 0,
         "There must be audio in my audio queue to use this command." \
             + "\nI clear my audio queue when I am not in voice chat."
     )

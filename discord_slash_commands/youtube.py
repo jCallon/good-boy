@@ -397,7 +397,8 @@ async def youtube_play(
             ctx = ctx,
             description = youtube_file.video_file_name,
             file_path = f"{youtube_file_cache.directory}/" \
-                + f"{youtube_file.audio_file_name}"
+                + f"{youtube_file.audio_file_name}",
+            priority = audio_queue.LOW_PRIORITY
         )
         if audio_queue_element_id == -1:
             rsp += f"\nError queuing: {youtube_file.url}" \
@@ -405,9 +406,14 @@ async def youtube_play(
             break
 
         # Audio was sucessfully added to queue
+        num_files_ahead = audio_queue_list.get_index_in_queue(
+            audio_queue_element_id = audio_queue_element_id,
+            priority = audio_queue.LOW_PRIORITY
+        )
         rsp += f"\nSuccessfully queued: {youtube_file.url} as ID " \
-            + f"`{audio_queue_element_id}`. My audio queue is now " \
-            + f"`{len(audio_queue_list.queue)}` files long."
+            + f"`{audio_queue_element_id}`." \
+            + f"\nThere are {num_files_ahead} other low-priority (priority " \
+            + "level {audio_queue.LOW_PRIORITY}) audio files ahead of you."
 
     # Tell author status of all downloading and queuing
     await ctx.respond(ephemeral=True, content=rsp)

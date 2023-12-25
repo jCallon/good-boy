@@ -100,7 +100,7 @@ class UserPermission():
 
         # Overwrite members with ones from table if defined and not just making
         # an empty instance of the class
-        if ctx != None:
+        if ctx is not None:
             self.read(self.guild_id, self.user_id)
 
     def save(self) -> bool:

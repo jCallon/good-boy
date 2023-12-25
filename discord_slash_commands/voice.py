@@ -87,8 +87,7 @@ async def voice_join(ctx):
     description="Make me leave your voice chat.",
     checks=[
         ctx_check.assert_bot_is_in_voice_chat,
-        ctx_check.assert_bot_is_in_same_voice_chat_as_author,
-        ctx_check.assert_bot_is_not_playing_audio_in_voice_chat,
+        ctx_check.assert_bot_is_in_same_voice_chat_as_author
     ]
 )
 async def voice_leave(ctx):
@@ -141,6 +140,11 @@ async def voice_queue_remove(
         description="ID of audio queue item to skip. " \
             "Leave blank to skip top of queue.",
         default=None
+    ),
+    priority: discord.Option(
+        int,
+        description="The priority level of the audio queue item to skip.",
+        default=0
     )
 ):
     """Tell bot to remove a certain item from its audio queue.
@@ -159,22 +163,25 @@ async def voice_queue_remove(
     audio_queue_list = ctx.bot.get_cog("AudioQueueList")
     if audio_queue_element_id is None:
         audio_queue_element_id = \
-            audio_queue_list.queue[0].audio_queue_element_id
+            audio_queue_list.queue_list[priority][0].audio_queue_element_id
 
     # Try to remove audio_queue_element_id from audio_queue
-    if audio_queue_list.remove(audio_queue_element_id) is False:
+    if audio_queue_list.remove(audio_queue_element_id, priority) is False:
         await ctx.respond(
             ephemeral=True,
-            content="I could not find an item in the audio queue with an ID " \
-                + f"of `{audio_queue_element_id}`."
+            content="I could not find an item in my audio queue with a " \
+                + f"priority of `{priority}` and an ID of " \
+                + f"`{audio_queue_element_id}`."
         )
         return False
 
+    # TODO: provide description?
     await ctx.respond(
         ephemeral=False,
         delete_after=60,
-        content="I removed the audio queue item with an ID of " \
-            + f"`{audio_queue_element_id}` from my audio queue."
+        content="I removed the audio queue item with a priority of " \
+            + f"`{priority}` and ID of `{audio_queue_element_id}` from my " \
+            + "audio queue."
     )
     return True
 
@@ -287,11 +294,14 @@ async def voice_queue_list(ctx):
     # Make a list of strings, each list element afer the 1st representing an
     # AudioQueueElement
     page_list = ["Summary:" \
-        + "\n`Audio Queue Element ID: First 50 characters of description`"]
-    for audio_queue_element in audio_queue_list.queue:
-        page_list[0] += f"\n`{audio_queue_element.audio_queue_element_id}: " \
-            + f"{audio_queue_element.description[:49]}`"
-        page_list.append(audio_queue_element.to_str())
+        + "\n`Priority : Audio Queue Element ID : " \
+        + "First 50 characters of description`"]
+    for queue in reversed(audio_queue_list.queue_list):
+        for audio_queue_element in queue:
+            page_list[0] += f"\n`{audio_queue_element.priority} : "\
+                f"{audio_queue_element.audio_queue_element_id} : " \
+                + f"{audio_queue_element.description[:49]}`"
+            page_list.append(audio_queue_element.to_str())
 
     # Return a neat page view of the audio queue
     paginator = pages.Paginator(pages=page_list, loop_pages=False)

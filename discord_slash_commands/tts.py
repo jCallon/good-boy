@@ -228,8 +228,6 @@ tts_file_cache = file_cache.FileCacheList(
 
 
 # Create TTS slash command group
-# TODO: make way for users to use TTS while other audio is
-# playing? Seperate TTS bot connection?
 tts_slash_command_group = discord.SlashCommandGroup(
     checks = [ctx_check.assert_author_is_allowed_to_call_command],
     #default_member_permissions = default,
@@ -371,13 +369,15 @@ async def tts_play(
     name_audio_queue_element_id = audio_queue_list.add(
         ctx = ctx,
         description = tts_user_preference.spoken_name,
-        file_path = name_audio_file_path
+        file_path = name_audio_file_path,
+        priority = audio_queue.HIGH_PRIORITY
     )
     # Queue text
     text_audio_queue_element_id = audio_queue_list.add(
         ctx = ctx,
         description = text_to_say,
-        file_path = text_audio_file_path
+        file_path = text_audio_file_path,
+        priority = audio_queue.HIGH_PRIORITY
     )
 
     # If both name and text could be added to audio queue successfully,
@@ -385,12 +385,18 @@ async def tts_play(
     if name_audio_queue_element_id > -1 and \
         text_audio_queue_element_id > -1 and \
         text_audio_queue_element_id == name_audio_queue_element_id + 1:
+        num_files_ahead = audio_queue_list.get_index_in_queue(
+            audio_queue_element_id = name_audio_queue_element_id,
+            priority = audio_queue.HIGH_PRIORITY
+        )
         await ctx.respond(
             ephemeral = True,
             content = f"Queued `{tts_user_preference.spoken_name}` as ID " \
                 + f"`{name_audio_queue_element_id}`, and `{text_to_say}` as " \
-                + f"ID `{text_audio_queue_element_id}`. My audio queue is " \
-                + f"`{len(audio_queue_list.queue)}` files long."
+                + f"ID `{text_audio_queue_element_id}`." \
+                + f"\nThere are {num_files_ahead} other high-priority "
+                + "(priority level {audio_queue.HIGH_PRIORITY}) audio files " \
+                + "ahead of you."
         )
         return True
     # If the name queued sucessfully, remove it, name and text must queue after
