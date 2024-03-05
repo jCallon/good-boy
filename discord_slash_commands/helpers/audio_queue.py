@@ -39,6 +39,7 @@ def timestamp_to_seconds(timestamp : str) -> float:
 
     Return the total number of seconds indicated by a HH:MM:SS-like timestamp.
     Ex. 0:52.22 = 52.22 seconds
+    6 = 6 seconds
     3:21 = 3 minutes and 21 seconds = 201 seconds
     50:24:46 = 50 hours, 24 minutes, and 46 seconds = 181486 seconds
 
@@ -60,9 +61,13 @@ def timestamp_to_seconds(timestamp : str) -> float:
         hours = int(timestamp[0])
         minutes = int(timestamp[1])
         seconds = float(timestamp[2])
-    else:
+    elif len(timestamp) == 2:
         minutes = int(timestamp[0])
         seconds = float(timestamp[1])
+    elif len(timestamp) == 1:
+        seconds = float(timestamp[0])
+    else:
+        raise ValueError()
     return (hours * 60 * 60) + (minutes * 60) + seconds
 
 
@@ -82,6 +87,7 @@ def seconds_to_timestamp(total_seconds : float) -> str:
     Returns:
         A HH:MM:SS-like timestamp for total_seconds.
     """
+    # Calculate number of hours, minutes, and seconds
     hours = 0
     while total_seconds > (60 * 60):
         hours += 1
@@ -91,18 +97,24 @@ def seconds_to_timestamp(total_seconds : float) -> str:
         minutes += 1
         total_seconds -= 60
     seconds = float(total_seconds)
+    full_seconds = math.floor(seconds)
+    partial_seconds = math.floor((seconds % 1) * 100)
 
+    # Convert minutes and seconds into padded strings
     # NOTE: The timestamp outputted will only have 2 decimal places of accuracy.
     # This is for ffmpeg compatibility (it does not support, say, 10 places)
-    timestamp = ""
-    timestamp += f"{hours}:" if hours > 0 else ""
-    timestamp += f"{minutes}".zfill(2) if hours > 0 else f"{minutes}"
-    timestamp += ":"
-    timestamp += f"{math.floor(seconds)}".zfill(2)
-    timestamp += "." if seconds % 1 != 0 else ""
-    timestamp += f"{math.floor((seconds % 1) * 100)}".zfill(2) \
-        if seconds % 1 != 0 else ""
-    return timestamp
+    minutes_padded = f"{minutes}".zfill(2)
+    full_seconds_padded = f"{full_seconds}".zfill(2)
+    partial_seconds_padded = f"{partial_seconds}".zfill(2)
+
+    # Create and return timestamp
+    if hours > 0:
+        return f"{hours}:{minutes_padded}:{full_seconds_padded}." \
+            + f"{partial_seconds_padded}"
+    elif minutes > 0:
+        return f"{minutes}:{full_seconds_padded}.{partial_seconds_padded}"
+    else:
+        return f"{full_seconds}.{partial_seconds_padded}"
 
 
 
