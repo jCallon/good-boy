@@ -195,13 +195,15 @@ class TTSUserPreference():
             return False
 
         # Execute SQL query
+        connection = sqlite.open_connection("tts_info")
         status = sqlite.run(
-            file_name = "tts_info",
+            connection = connection,
             query = "SELECT user_id,spoken_name,language FROM " \
                 + f"guild_{guild_id} WHERE user_id={user_id}",
             query_parameters = (),
             commit = False
         )
+        sqlite.close_connection(connection)
 
         # If there was no match, return failure and don't change this
         # TTSUserPreference's members

@@ -59,7 +59,7 @@ async def rng_roll(
     """Tell bot to give you a random number.
 
     Make the bot give you back a random number, between and including
-    minimum_valie and max_value. The number given back will be an integer
+    minimum_value and max_value. The number given back will be an integer
     if is_whole, otherwise a float.
 
     Args:

@@ -8,6 +8,9 @@ the discord_slash_commands directory, to the Discord-accessible bot.
 # Import libraries                                                             #
 #==============================================================================#
 
+# Import command-line argument parsing API
+import argparse
+
 # Import operating system module
 import os
 
@@ -33,6 +36,21 @@ from discord_slash_commands.helpers import sqlite
 # Define underlying structure                                                  #
 #==============================================================================#
 
+# Determine whether bot is in test mode.
+# When the bot is not in test mode, it uses BOT_TOKEN to log in.
+# When the bot is in test mode, it instead uses TEST_MODE_BOT_TOKEN to log in.
+# This way, you can have one instance of the bot up with experimental/buggy/new
+# code up in your test server in test mode while you debug it, and one instance
+# of the bot up with stable code in your more widely accessible servers.
+parser = argparse.ArgumentParser(
+    prog="GoodBoy",
+    description="A pycord Discord Bot"
+)
+parser.add_argument("-t", "--test_mode", action='store_true')
+args = parser.parse_args()
+
+
+
 # Enable accurate member cache (needed for settings slash commands)
 discord.Intents.default().members = True
 
@@ -50,8 +68,9 @@ discord_bot.add_application_command(rng.rng_slash_command_group)
 discord_bot.add_application_command(voice.voice_slash_command_group)
 discord_bot.add_application_command(tts.tts_slash_command_group)
 # TODO: Re-enable these once they are properly tested and debugged
-#discord_bot.add_application_command(permissions.permissions_slash_command_group)
-#discord_bot.add_application_command(reminder.reminder_slash_command_group)
+if args.test_mode is True:
+    discord_bot.add_application_command(permissions.permissions_slash_command_group)
+    discord_bot.add_application_command(reminder.reminder_slash_command_group)
 discord_bot.add_application_command(youtube.youtube_slash_command_group)
 discord_bot.add_application_command(misc.bot_slash_command_group)
 
@@ -115,7 +134,7 @@ async def on_ready():
             "recurrence_type TEXT NOT NULL",
             "next_occurrence_time INTEGER NOT NULL",
             "expiration_time INTEGER NOT NULL",
-            "content TEXT"
+            "content TEXT NOT NULL"
         ]
     )
 
@@ -124,7 +143,8 @@ async def on_ready():
     print(f"{discord_bot.user} is ready and online!")
 
     # Add cog containing task to dispatch reminders every minute
-    discord_bot.add_cog(reminder.ReminderCog(bot=discord_bot))
+    if args.test_mode is True:
+        discord_bot.add_cog(reminder.ReminderCog(bot=discord_bot))
 
 
 
@@ -157,13 +177,15 @@ async def on_application_command_error(
     # Elevate error so bot-owner sees it in-console
     raise error
 
-
-
 #==============================================================================#
 # Run Discord bot                                                              #
 #==============================================================================#
 
 # Get bot token from environment variables
-BOT_TOKEN = str(os.getenv("TOKEN"))
+print(f"Test mode: {args.test_mode}")
+if args.test_mode is True:
+    BOT_TOKEN = str(os.getenv("TEST_MODE_BOT_TOKEN"))
+else:
+    BOT_TOKEN = str(os.getenv("BOT_TOKEN"))
 # Start bot
 discord_bot.run(BOT_TOKEN)

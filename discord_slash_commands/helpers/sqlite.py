@@ -14,22 +14,50 @@ import sqlite3
 
 # TODO: Assert sqlite library works for multiple threads
 # See https://docs.python.org/3/library/sqlite3.html#sqlite3.threadsafety
-#assert sqlite3.threadsafety == 3
+assert sqlite3.threadsafety in (1,3)
 
 #==============================================================================#
 # Define underlying structure                                                  #
 #==============================================================================#
 
-# Define a global dictionary of connections to database files, where each
-# key is 'db_file', or the file name, within the path to the database file,
-# in this example, ./db_file.db. The point of this is to keep Connection made
-# in top level threads to be usable by spawned threads, so the sqlite3 module
-# can handle each thread automatically and safely without collision.
-global connection_dict
-connection_dict = {}
-
 # TODO: Always check for bad return and throw values for functions.
 # TODO: Check for database files getting too big.
+
+
+
+# TODO: Assert a connection is always closed before it destructs?
+def open_connection(file_name: str) -> sqlite3.Connection:
+    """ TODO.
+
+    TODO.
+
+    Args:
+        TODO
+
+    Returns:
+        TODO
+    """
+    return sqlite3.connect(
+        database = f"db/{file_name}.db",
+        check_same_thread = True
+        # TODO: Why doesn't this work? The main API page says this is a param.
+        #autocommit = False
+    )
+
+
+
+def close_connection(connection: sqlite3.Connection) -> None:
+    """ TODO.
+
+    TODO.
+
+    Args:
+        TODO
+
+    Returns:
+        TODO
+    """
+    return connection.close()
 
 
 
@@ -60,17 +88,8 @@ def add_connection(
             of one column in the table to create or already created for
             ./db/$file_name.db
     """
-    # Create connection for file_name that is multi-thread safe
-    connection = sqlite3.connect(
-        database = f"db/{file_name}.db",
-        check_same_thread = False
-        # TODO: Why doesn't this work? The main API page says this is a param.
-        #autocommit = False
-    )
-
-    # Add or overwrite connection to connection_dict
-    global connection_dict
-    connection_dict[file_name] = connection
+    # Create connection for file_name
+    connection = open_connection(file_name)
 
     for table_name in table_name_list:
         # Get cursor (iterator-like object) for the connection
@@ -88,8 +107,12 @@ def add_connection(
         # Commit changes
         connection.commit()
 
+    # Close connection, it is no longer needed
+    close_connection(connection)
 
 
+
+# TODO: Do I need this anymore?
 class Status():
     """Define a class for run to return.
 
@@ -116,7 +139,7 @@ class Status():
 
 
 def run(
-    file_name: str,
+    connection: sqlite3.Connection,
     query: str,
     query_parameters: tuple,
     commit: bool
@@ -128,7 +151,7 @@ def run(
     if commit is True.
 
     Args:
-        file_name: The file name of the database you wish to access
+        connection: TODO
         query: The general SQL command you wish to execute
         query_parameters: The parameters that will be used in query (if you put
             user-entered info straight into query, you may be vulnerable to SQL
@@ -139,12 +162,6 @@ def run(
         A Status, giving both whether the query ran smoothly and what the query
         returned.
     """
-    # Get pre-existing connection from connection_dict, if one doesn't exist,
-    # can't do the query and return failure
-    if file_name not in connection_dict:
-        return Status(False, [])
-    connection = connection_dict[file_name]
-
     # Get cursor (iterator-like object) for the connection
     cursor = connection.cursor()
 

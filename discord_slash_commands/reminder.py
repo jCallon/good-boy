@@ -61,7 +61,7 @@ def get_guild_for_channel_id(
         The discord.Guild for channel_id, if none exists, None.
     """
     channel = bot.get_channel(channel_id)
-    if isinstance(channel, (discord.abc.GuildChannel, discord.abc.Thread)):
+    if isinstance(channel, (discord.abc.GuildChannel, discord.Thread)):
         return channel.guild
     return None
 
@@ -148,7 +148,7 @@ class Reminder():
         self.content = source[6]
 
     def to_str(self, bot: discord.Bot) -> str:
-        """Convert the data in this Reminder to an human-readable string.
+        """Convert the data in this Reminder to a human-readable string.
 
         Make a string including each member of this Reminder, formatted in an
         easy, human-readable way for Discord.
@@ -246,8 +246,9 @@ class Reminder():
         # Execute SQL query
         # If no reminder_id is specified, SQLite will automatically generate a
         # unique reminder_id, see https://www.sqlite.org/autoinc.html
-        return sqlite.run(
-            file_name = DB_FILE_NAME,
+        connection = sqlite.open_connection(DB_FILE_NAME)
+        status = sqlite.run(
+            connection = connection,
             query = f"INSERT INTO {DB_TABLE_NAME} VALUES "\
                 + "(" \
                 +     "NULL,"\
@@ -260,7 +261,9 @@ class Reminder():
                 + ")",
             query_parameters = (self.recurrence_type, self.content),
             commit = True
-        ).success
+        )
+        sqlite.close_connection(connection)
+        return status.success
 
     def update(self, column_name: str) -> bool:
         """Overwrite column_name's value with this Reminder's equivalent member.
@@ -295,15 +298,18 @@ class Reminder():
         column_name = name_to_value_dict[column_name][0]
 
         # Execute SQL query
-        return sqlite.run(
-            file_name = DB_FILE_NAME,
+        connection = sqlite.open_connection(DB_FILE_NAME)
+        status = sqlite.run(
+            connection = connection,
             query = f"UPDATE {DB_TABLE_NAME} SET {column_name}=" \
                 + f"{'?' if isinstance(new_value, str) else new_value} " \
                 + f"WHERE reminder_id={self.reminder_id}",
             query_parameters = (new_value,) if isinstance(new_value, str) \
                 else (),
             commit = True
-        ).success
+        )
+        sqlite.close_connection(connection)
+        return status.success
 
     def read(self, reminder_id: int) -> bool:
         """Copy Reminder matching reminder_id from database.
@@ -327,13 +333,15 @@ class Reminder():
             return False
 
         # Execute SQL query
+        connection = sqlite.open_connection(DB_FILE_NAME)
         status = sqlite.run(
-            file_name = DB_FILE_NAME,
+            connection = connection,
             query = f"SELECT * FROM {DB_TABLE_NAME} WHERE reminder_id=" \
                 + f"{reminder_id}",
             query_parameters = (),
             commit = False
         )
+        sqlite.close_connection(connection)
 
         # If there was no match, return failure and don't change this
         # Reminder's members
@@ -364,13 +372,16 @@ class Reminder():
             return False
 
         # Execute SQL query
-        return sqlite.run(
-            file_name = DB_FILE_NAME,
+        connection = sqlite.open_connection(DB_FILE_NAME)
+        status = sqlite.run(
+            connection = connection,
             query = f"DELETE FROM {DB_TABLE_NAME} WHERE reminder_id="\
                 + f"{reminder_id}",
             query_parameters = (),
             commit = True
-        ).success
+        )
+        sqlite.close_connection(connection)
+        return status.success
 
 
 
@@ -485,12 +496,14 @@ async def reminder_add(
     # Get its auto-generated ROWID
     # ... see stackoverflow:
     # how-to-retrieve-the-last-autoincremented-id-from-a-sqlite-table
+    connection = sqlite.open_connection(DB_FILE_NAME)
     sqlite_response = sqlite.run(
-        file_name = DB_FILE_NAME,
+        connection = connection,
         query = "SELECT last_insert_rowid()",
         query_parameters = (),
         commit = False
     )
+    sqlite.close_connection(connection)
     if sqlite_response.success is False:
         await ctx.respond(
             ephemeral=True,
@@ -514,7 +527,6 @@ async def reminder_add(
             + "triggers or is deleted." \
             + "\nPlease delete/modify this reminder if that doesn't sit well " \
             + "with you." \
-            + "\nDiscord may delete this message next time you close it."
             + "\n" \
             + "\n" + reminder.to_str(bot=ctx.bot)
     )
@@ -699,12 +711,14 @@ async def reminder_list(ctx):
     # NOTE: This query can be optimized by introducing a guild_id column to the
     # database table, but this is just a read, not a write, so I wasn't too
     # concerned about speed
+    connection = sqlite.open_connection(DB_FILE_NAME)
     sqlite_response = sqlite.run(
-        file_name = DB_FILE_NAME,
+        connection = connection,
         query = f"SELECT * FROM {DB_TABLE_NAME}",
         query_parameters = (),
         commit = False
     )
+    sqlite.close_connection(connection)
 
     # Tell author if SQL query failed
     if sqlite_response.success is False:
@@ -737,7 +751,7 @@ async def reminder_list(ctx):
     if len(page_list) == 1:
         await ctx.respond(
             ephemeral=True,
-            content="I could not find any reminders you are allowed to view." \
+            content="I could not find any reminders you are allowed to view. " \
                 + "You are only allowed to view reminders you authored or " \
                 + "that were created in this guild, if you're an admin in it."
         )
@@ -794,13 +808,15 @@ class ReminderCog(commands.Cog):
         now = time.localtime()
 
         # Get all reminders that must be dispatched
+        connection = sqlite.open_connection(DB_FILE_NAME)
         sqlite_response = sqlite.run(
-            file_name = DB_FILE_NAME,
+            connection = connection,
             query = f"SELECT * FROM {DB_TABLE_NAME} WHERE "\
                 + f"next_occurrence_time<={time.mktime(now)}",
             query_parameters = (),
             commit = False
         )
+        sqlite.close_connection(connection)
 
         # Exit early if SQL query failed
         if sqlite_response.success is False:
@@ -871,11 +887,14 @@ class ReminderCog(commands.Cog):
                     next_date_time = next_date_time + relativedelta(years=+1)
                     next_time = next_date_time.timestamp()
 
+                # Update while loop condition
+                reminder.next_occurrence_time = next_time
+
                 # If the reminder is set to never occur again, or next_time
                 # is after expiration_time, remove the reminder, otherwise
                 # set next_occurrence_time to next_time
                 if reminder.recurrence_type == "N" or \
-                    next_time >= reminder.expiration_time:
+                    next_time > reminder.expiration_time:
                     # Stop the loop
                     reminder_is_deleted = True
                     # Update table
@@ -885,14 +904,16 @@ class ReminderCog(commands.Cog):
                 else:
                     # Execute SQL query
                     # (in faster/more way than reminder.save())
+                    connection = sqlite.open_connection(DB_FILE_NAME)
                     write_status = sqlite.run(
-                        file_name = DB_FILE_NAME,
+                        connection = connection,
                         query = f"UPDATE {DB_TABLE_NAME} SET " \
                             + f"next_occurrence_time={next_time} WHERE " \
                             + f"reminder_id={reminder.reminder_id}",
                         query_parameters = (),
                         commit = True
                     )
+                    sqlite.close_connection(connection)
 
                     # Check query status
                     if write_status.success is False:

@@ -151,12 +151,14 @@ async def permission_view(
         condition = "is_blacklisted>0"
 
     # Execute SQL query
+    connection = sqlite.open_connection("permissions")
     status = sqlite.run(
-        file_name = "permissions",
+        connection = connection,
         query = f"SELECT user_id FROM guild_{ctx.guild.id} WHERE {condition}",
         query_parameters = (),
         commit = False
     )
+    sqlite.close_connection(connection)
 
     # Tell the author if the query failed
     if status.success is False:
