@@ -141,8 +141,9 @@ class TTSUserPreference():
             return False
 
         # Execute SQL query
-        return sqlite.run(
-            file_name = "tts_info",
+        connection = sqlite.open_connection("tts_info")
+        sqlite.run(
+            connection = connection,
             query = f"INSERT INTO guild_{self.guild_id} VALUES "\
                 + f"({self.user_id},?,?) ON CONFLICT(user_id) " \
                 + "DO UPDATE SET spoken_name=?,language=?",
@@ -153,7 +154,9 @@ class TTSUserPreference():
                 self.language
             ),
             commit = True
-        ).success is True
+        )
+        sqlite.close_connection(connection)
+        return True
 
 
     def read(self, guild_id: int, user_id: int) -> bool:
@@ -196,7 +199,7 @@ class TTSUserPreference():
 
         # Execute SQL query
         connection = sqlite.open_connection("tts_info")
-        query_status = sqlite.run(
+        query_result = sqlite.run(
             connection = connection,
             query = "SELECT user_id,spoken_name,language FROM " \
                 + f"guild_{guild_id} WHERE user_id={user_id}",
