@@ -152,7 +152,7 @@ async def permission_view(
 
     # Execute SQL query
     connection = sqlite.open_connection("permissions")
-    status = sqlite.run(
+    query_result = sqlite.run(
         connection = connection,
         query = f"SELECT user_id FROM guild_{ctx.guild.id} WHERE {condition}",
         query_parameters = (),
@@ -160,13 +160,8 @@ async def permission_view(
     )
     sqlite.close_connection(connection)
 
-    # Tell the author if the query failed
-    if status.success is False:
-        await ctx.respond(ephemeral=True, content=user_perm.sql_error_paste_str)
-        return False
-
     # Tell the author if the query was successful but the results were empty
-    if status.result == []:
+    if len(query_result) == 0:
         await ctx.respond(
             ephemeral=True,
             content="I couldn't find any members with that permission in " \
@@ -176,7 +171,7 @@ async def permission_view(
 
     # Tell the author every member from the results
     mention_list = []
-    for match_tuple in status.result:
+    for match_tuple in query_result:
         mention_list.append(f"<@{match_tuple[0]}>")
     await ctx.respond(ephemeral=True, content=",".join(mention_list))
     return True

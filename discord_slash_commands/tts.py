@@ -196,7 +196,7 @@ class TTSUserPreference():
 
         # Execute SQL query
         connection = sqlite.open_connection("tts_info")
-        status = sqlite.run(
+        query_status = sqlite.run(
             connection = connection,
             query = "SELECT user_id,spoken_name,language FROM " \
                 + f"guild_{guild_id} WHERE user_id={user_id}",
@@ -207,12 +207,12 @@ class TTSUserPreference():
 
         # If there was no match, return failure and don't change this
         # TTSUserPreference's members
-        if status.success is False or len(status.result) == 0:
+        if len(query_result) == 0:
             return False
 
         # There was a match, overwrite this TTSUserPreference's members with
         # values from the database
-        result = status.result[0]
+        result = query_result[0]
         self.guild_id = guild_id
         self.user_id = user_id
         self.spoken_name = result[1]

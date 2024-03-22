@@ -91,7 +91,7 @@ async def on_ready():
     # TODO: Do connections need to be closed before the application closes?
     # TODO: Make new tables when connecting to a new guild
     # TODO: Make spoken name unique?
-    sqlite.add_connection(
+    sqlite.init_db(
         file_name="tts_info",
         table_name_list=connected_guild_id_list,
         column_list=[
@@ -102,7 +102,7 @@ async def on_ready():
     )
 
     # Create or get connection to existing member permissions database
-    sqlite.add_connection(
+    sqlite.init_db(
         file_name="permissions",
         table_name_list=connected_guild_id_list,
         column_list=[
@@ -114,17 +114,23 @@ async def on_ready():
 
     # TODO: uncomment once feature is enabled
     # Create or get connection to existing polls database
-    #sqlite.add_connection(
+    #sqlite.init_db(
     #    file_name="polls",
     #    table_name_list=["outstanding_polls"],
     #    column_list=[
-    #        "message_id INTEGER NOT NULL PRIMARY KEY",
-    #        "expiration INTEGER NOT NULL"
+    #        "poll_id INTEGER NOT NULL PRIMARY KEY",
+    #        "expiration_time INTEGER NOT NULL",
+    #        "multiple_choice INTEGER NOT NULL",
+    #        "show_progress INTEGER NOT NULL",
+    #        "anonymous INTEGER NOT NULL",
+    #        "subject TEXT NOT NULL",
+    #        # NOTE: Should I use foreign keys?
+    #        #"options_id INTEGER NOT NULL",
     #    ]
     #)
 
     # Create or get connection to existing reminders database
-    sqlite.add_connection(
+    sqlite.init_db(
         file_name="reminders",
         table_name_list=["outstanding_reminders"],
         column_list=[

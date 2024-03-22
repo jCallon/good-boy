@@ -133,15 +133,18 @@ class UserPermission():
         is_admin = int(self.is_admin)
 
         # Execute SQL query
-        return sqlite.run(
-            file_name = "permissions",
+        connection = sqlite.open_connection("permissions")
+        sqlite.run(
+            connection = connection,
             query = f"INSERT INTO guild_{self.guild_id} VALUES "\
                 + f"({self.user_id},{is_blacklisted},{is_admin}) " \
                 + "ON CONFLICT(user_id) DO UPDATE SET " \
                 + f"is_blacklisted={is_blacklisted},is_admin={is_admin}",
             query_parameters = (),
             commit = True
-        ).success is True
+        )
+        sqlite.close_connection(connection)
+        return True
 
     def read(self, guild_id: int, user_id: int) -> bool:
         """Copy UserPermission matching user_id from database.
@@ -167,30 +170,28 @@ class UserPermission():
             return False
 
         # Execute SQL query
-        status = sqlite.run(
-            file_name = "permissions",
+        connection = sqlite.open_connection("permissions")
+        query_result = sqlite.run(
+            connection = connection,
             query = "SELECT is_blacklisted,is_admin FROM " \
                 + f"guild_{guild_id} WHERE user_id={user_id}",
             query_parameters = (),
             commit = False
         )
-
-        # If there was an error executing the query, return failure
-        if status.success is False:
-            return False
+        sqlite.close_connection(connection)
 
         # If the query was sucessful but simply had no results, return success
         # and set this UserPermission to default permissions
         self.guild_id = guild_id
         self.user_id = user_id
-        if status.result == []:
+        if len(query_result) == 0:
             self.is_blacklisted = False
             self.is_admin = False
             return True
 
         # There was a match, overwrite this UserPermission's members with
         # values from the database
-        result = status.result[0]
+        result = query_result[0]
         self.is_blacklisted = bool(result[0])
         self.is_admin = bool(result[1])
         return True
