@@ -70,7 +70,7 @@ discord_bot.add_application_command(tts.tts_slash_command_group)
 # TODO: Re-enable these once they are properly tested and debugged
 if args.test_mode is True:
     discord_bot.add_application_command(permissions.permissions_slash_command_group)
-    discord_bot.add_application_command(reminder.reminder_slash_command_group)
+discord_bot.add_application_command(reminder.reminder_slash_command_group)
 discord_bot.add_application_command(youtube.youtube_slash_command_group)
 discord_bot.add_application_command(misc.bot_slash_command_group)
 
@@ -149,8 +149,7 @@ async def on_ready():
     print(f"{discord_bot.user} is ready and online!")
 
     # Add cog containing task to dispatch reminders every minute
-    if args.test_mode is True:
-        discord_bot.add_cog(reminder.ReminderCog(bot=discord_bot))
+    discord_bot.add_cog(reminder.ReminderCog(bot=discord_bot))
 
 
 
