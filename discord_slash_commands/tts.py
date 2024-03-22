@@ -141,8 +141,9 @@ class TTSUserPreference():
             return False
 
         # Execute SQL query
-        return sqlite.run(
-            file_name = "tts_info",
+        connection = sqlite.open_connection("tts_info")
+        sqlite.run(
+            connection = connection,
             query = f"INSERT INTO guild_{self.guild_id} VALUES "\
                 + f"({self.user_id},?,?) ON CONFLICT(user_id) " \
                 + "DO UPDATE SET spoken_name=?,language=?",
@@ -153,7 +154,9 @@ class TTSUserPreference():
                 self.language
             ),
             commit = True
-        ).success is True
+        )
+        sqlite.close_connection(connection)
+        return True
 
 
     def read(self, guild_id: int, user_id: int) -> bool:
@@ -195,22 +198,24 @@ class TTSUserPreference():
             return False
 
         # Execute SQL query
-        status = sqlite.run(
-            file_name = "tts_info",
+        connection = sqlite.open_connection("tts_info")
+        query_result = sqlite.run(
+            connection = connection,
             query = "SELECT user_id,spoken_name,language FROM " \
                 + f"guild_{guild_id} WHERE user_id={user_id}",
             query_parameters = (),
             commit = False
         )
+        sqlite.close_connection(connection)
 
         # If there was no match, return failure and don't change this
         # TTSUserPreference's members
-        if status.success is False or len(status.result) == 0:
+        if len(query_result) == 0:
             return False
 
         # There was a match, overwrite this TTSUserPreference's members with
         # values from the database
-        result = status.result[0]
+        result = query_result[0]
         self.guild_id = guild_id
         self.user_id = user_id
         self.spoken_name = result[1]

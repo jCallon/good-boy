@@ -215,6 +215,8 @@ class YoutubeFile():
         # The url was valid, set self.video_file_name and derive
         # self.audio_file_name from it (the same file name, but ending in .mp3)
         debug_messages = self.logger.get_messages("debug")
+        # TODO: debug why sometimes you need to retry the command and then it works
+        print(debug_messages)
         self.video_file_name = debug_messages[1]
         index_of_last_period = self.video_file_name.rfind(".")
         self.audio_file_name = self.video_file_name[0:index_of_last_period] \

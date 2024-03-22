@@ -17,9 +17,35 @@ pip3 install ffmpeg-normalize
 # and copying the contents of the main repo into it:
 # https://github.com/ytdl-org/youtube-dl/tree/master/youtube_dl
 
+# Invite the bot to your server(s)
+# Do not invite the bot with the token TEST_MODE_BOT_TOKEN to non-test servers!
+# If you don't want or can find a way around any of these permissions, feel free
+# to disable them, the bot just might not work as intended. The less
+# permissions needed, the better!
+# In OAuth2 tab:
+# - Scopes:
+#   - bot (to let users see this 'Discord user' is a bot)
+# - Bot Permissions:
+#   - General Permissions:
+#     - Read Messages/View Channels (to let bot read polls it created)
+#   - Text Permissions:
+#     - Send Messages (to let bot send reminders/polls, not just responses)
+#     - Send TTS Messages (to let users use TTS on bot's text responses)
+#     - Send Messages in Threads (to let bot respond to in-thread commands)
+#     - Embed Links (to let bot give links with pictures)
+#     - Attach Files (to let bot send audio from its sound library)
+#     - Read Message History (to let bot read polls it created)
+#     - Add Reactions (to let bot react to polls it created)
+#   - Voice Permissions:
+#     - Connect (to let bot join a voice channel)
+#     - Speak (to let bot be able to play audio in a voice channel)
+#     - Use Voice Activity (to let bot be able to set voice status)
+# Result: https://discord.com/api/oauth2/authorize?client_id=???&permissions=274914737216&scope=bot
+
 # Make a file to read your bot's token from
 touch .env
-# TOKEN = $my_bot_token
+# TEST_MODE_BOT_TOKEN = $my_test_bot_bot_token
+# BOT_TOKEN = $my_stable_bot_token
 # BOT_OWNER_DISCORD_USER_ID = $my_discord_user_id
 
 # Run the bot
