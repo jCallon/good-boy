@@ -255,7 +255,8 @@ TTS_DEFAULT_VOLUME = 2.0
 
 def make_tts_audio_file(
     text_to_say : str,
-    language_to_speak : str
+    language_to_speak : str,
+    normalize : bool
 ) -> str:
     """Download audio for the text_to_say in language_to_speak from gtts.
 
@@ -276,6 +277,8 @@ def make_tts_audio_file(
     )
 
     # If the file is not already downloaded, download it
+    # TODO: with the addition of the normalize option, it's possible
+    # the predownloaded audio won't have matching normalization
     if not tts_file_cache.file_exists(file_name):
         speech_from_text = gtts.tts.gTTS(
             text=text_to_say,
@@ -283,7 +286,10 @@ def make_tts_audio_file(
         )
         speech_from_text.save(f"{file_cache.CACHE_DIR}/{file_name}")
         # TODO: error should never happen, but add check anyways
-        tts_file_cache.add(file_name = file_name, normalize_audio = True)
+        tts_file_cache.add(
+            file_name = file_name,
+            normalize_audio = normalize
+        )
 
     # Return file path with generated audio
     return tts_file_cache.get_file_path(file_name)
@@ -308,6 +314,11 @@ async def tts_play(
     text_to_say: discord.Option(
         str,
         description="The text you want said on your behalf in voice chat."
+    ),
+    normalize: discord.Option(
+        bool,
+        description="Make volume more consistent throughout audio.",
+        default=False
     )
 ):
     """Tell bot to say text_to_say in voice chat.
@@ -360,12 +371,14 @@ async def tts_play(
     # Get/create audio file for name
     name_audio_file_path = make_tts_audio_file(
         text_to_say=tts_user_preference.spoken_name,
-        language_to_speak=tts_user_preference.language
+        language_to_speak=tts_user_preference.language,
+        normalize=normalize
     )
     # Get/create audio file for text
     text_audio_file_path = make_tts_audio_file(
         text_to_say=text_to_say,
-        language_to_speak=tts_user_preference.language
+        language_to_speak=tts_user_preference.language,
+        normalize=normalize
     )
 
     # Pull audio queue

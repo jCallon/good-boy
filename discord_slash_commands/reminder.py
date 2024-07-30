@@ -722,10 +722,10 @@ async def reminder_list(ctx):
         # Parse reminder from SQL tuple
         reminder = Reminder()
         reminder.from_tuple(result)
-        # Omit a reminder from the list if the author is not allowed to view it
-        if reminder.author_user_id != ctx.author.id or \
-            not(user_permission.is_admin and ctx.guild.id == \
-                get_guild_for_channel_id(ctx.bot, reminder.channel_id).id):
+        # Do not add reminder to list if the author is not allowed to view it
+        if not(reminder.author_user_id == ctx.author.id or \
+            (user_permission.is_admin and ctx.guild.id == \
+                get_guild_for_channel_id(ctx.bot, reminder.channel_id).id)):
             continue
         # Append reminder to summary and overall list
         page_list[0] += f"\n`{reminder.reminder_id}: {reminder.content[:49]}`"
