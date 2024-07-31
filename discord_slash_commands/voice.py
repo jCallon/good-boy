@@ -10,6 +10,9 @@ otherwise interface with audio in voice chat.
 # Import public libraries                                                      #
 #==============================================================================#
 
+# Import time API to be able to delay execution
+import time
+
 # Import Discord Python API
 import discord
 
@@ -70,7 +73,6 @@ async def voice_join(ctx):
         return False
 
     # Join the author's voice chat
-    # TODO: Play a high bark on entry
     await ctx.author.voice.channel.connect()
     ctx.bot.add_cog(audio_queue.AudioQueueList(ctx.bot.voice_clients[0]))
     await ctx.respond(
@@ -78,9 +80,34 @@ async def voice_join(ctx):
         delete_after = 60*30,
         content = "I have tried to connect to your voice channel."
     )
+
+    # Play bark on entry
+    audio_queue_list = ctx.bot.get_cog("AudioQueueList")
+    audio_queue_list.add(
+        ctx = ctx,
+        description = "Enter bark",
+        file_path = "./bark_high.mp3",
+        priority = audio_queue.HIGH_PRIORITY
+    )
+
     return True
 
 
+
+# TODO: I hate this so much, do something better
+global can_exit
+def ugly_workaround(e):
+    """ Set global can_exit to true.
+
+    This function is meant to be used as a callback, simply setting
+    a global that will be accessed and checked against outside the function
+    to True.
+
+    Args:
+        e: The event that called this callback
+    """
+    global can_exit
+    can_exit = True
 
 @voice_slash_command_group.command(
     name="leave",
@@ -98,16 +125,32 @@ async def voice_leave(ctx):
     Args:
         ctx: The context this SlashCommand was called under
     """
-    # Leave the author's voice chat
-    # TODO: Play a low bark on exit
-    await ctx.voice_client.disconnect()
+    # Remove audio queue
     ctx.bot.remove_cog("AudioQueueList")
+
+    # Play exit bark
+    global can_exit
+    can_exit = False
+    ctx.voice_client.play(
+        discord.FFmpegPCMAudio(source = "./bark_low.mp3"),
+        after = ugly_workaround
+    )
+
+    # Wait to exit until the exit bark is done playing or one second has passed
+    start_time = time.time()
+    while can_exit is False and time.time() - start_time < 1:
+        # Do something useless
+        stall = 1 + 1
+
+    # Leave the author's voice chat
+    await ctx.voice_client.disconnect()
     await ctx.respond(
         ephemeral=False,
         delete_after=60*30,
         content="I have tried to disconnect from your voice channel."
     )
     return True
+
 
 
 

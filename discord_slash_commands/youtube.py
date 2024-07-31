@@ -8,6 +8,9 @@ videos in their current connected voice chat.
 # Import public libraries                                                      #
 #==============================================================================#
 
+# Import regex API
+import re
+
 # Import interface to interact with YouTube
 import youtube_dl
 
@@ -256,6 +259,8 @@ class YoutubeFile():
             ##### or causes issues with the postprocessor
             ##### Set the max allowed video size to 20MB
             ####"max_filesize" : "20m",
+            # Number of times to retry for HTTP error 5xx
+            "retries": 5,  
             # If the URL is of an item in a playlist, just download the
             # individual video instead of the playlist
             "noplaylist" : True,
@@ -305,10 +310,13 @@ async def youtube_play(
     url: discord.Option(
         str,
         description="The URL of the video or playlist you wish to have played."
+    ),
+    # TODO: add optional start timestamp to command
+    normalize: discord.Option(
+        bool,
+        description="Make volume more consistent throughout audio.",
+        default=False
     )
-    # NOTE: Adding a 'normalize' option is theoretically easy, but I don't trust
-    #       users enough to use it responsonsibly and not blow out each other's
-    #       ears... :,)
 ):
     """Tell bot to play audio from a YouTube video or playlist in voice chat.
 
@@ -318,9 +326,29 @@ async def youtube_play(
     Args:
         ctx: The context this SlashCommand was called under
         url: The URL for the YouTube video or playlist to download and play
+        normalize: Make the volume more consistent throughout the audio
     """
+    # If the URL came from someone's URL bar, reformat it to make API happy
+    # by removing all GET parameters but v, which gives the video ID
+    if url.startswith("https://www.youtube.com/") and \
+        not url.startswith("https://www.youtube.com/playlist?list="):
+        # Find the video ID, which is Base 64 + '-' and '_'
+        # https://en.wikipedia.org/wiki/Base64
+        match = re.findall(
+            pattern="v=[A-Z,a-z,0-9,+/=-_]+",
+            string=url
+        )
+        if len(match) == 0:
+            ctx.respond(
+                ephemeral=True,
+                content="Please use a URL that gives the video ID (v=...)."
+            )
+            return False
+        # Reformat the video URL to just be youtube + the video ID
+        url = "https://youtu.be/" + match[0][2:]
+
     # Check validity of URL
-    if not(url.startswith("https://youtu.be/") or \
+    if not (url.startswith("https://youtu.be/") or \
         url.startswith("https://www.youtube.com/playlist?list=")):
         await ctx.respond(
             ephemeral=True,
@@ -384,12 +412,16 @@ async def youtube_play(
             continue
 
         # Download the audio file for this video if it's not already downloaded
+        # TODO: Use different thread to download and queue audio?
+        #       Could that cause deletion issues?
         if not youtube_file_cache.file_exists(youtube_file.audio_file_name):
+            # TODO: with the addition of the normalize option, it's possible
+            # the predownloaded audio won't have matching normalization
             # Download to intermediate cache, then move to youtube file cache
             if youtube_file.download(file_cache.CACHE_DIR) is False or \
                 youtube_file_cache.add(
                     file_name = youtube_file.audio_file_name,
-                    normalize_audio = True
+                    normalize_audio = normalize
                 ) is False:
                 rsp += f"\nError downloading: {youtube_file.url}"
                 continue

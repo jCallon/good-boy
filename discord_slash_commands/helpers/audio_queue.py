@@ -111,10 +111,9 @@ def seconds_to_timestamp(total_seconds : float) -> str:
     if hours > 0:
         return f"{hours}:{minutes_padded}:{full_seconds_padded}." \
             + f"{partial_seconds_padded}"
-    elif minutes > 0:
+    if minutes > 0:
         return f"{minutes}:{full_seconds_padded}.{partial_seconds_padded}"
-    else:
-        return f"{full_seconds}.{partial_seconds_padded}"
+    return f"{full_seconds}.{partial_seconds_padded}"
 
 
 
