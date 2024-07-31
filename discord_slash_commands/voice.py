@@ -94,9 +94,18 @@ async def voice_join(ctx):
 
 
 
-# I hate this so much
+# TODO: I hate this so much, do something better
 global can_exit
 def ugly_workaround(e):
+    """ Set global can_exit to true.
+
+    This function is meant to be used as a callback, simply setting
+    a global that will be accessed and checked against outside the function
+    to True.
+
+    Args:
+        e: The event that called this callback
+    """
     global can_exit
     can_exit = True
 
@@ -132,7 +141,7 @@ async def voice_leave(ctx):
     while can_exit is False and time.time() - start_time < 1:
         # Do something useless
         stall = 1 + 1
-        
+
     # Leave the author's voice chat
     await ctx.voice_client.disconnect()
     await ctx.respond(

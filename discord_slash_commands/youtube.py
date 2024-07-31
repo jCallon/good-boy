@@ -8,14 +8,14 @@ videos in their current connected voice chat.
 # Import public libraries                                                      #
 #==============================================================================#
 
+# Import regex API
+import re
+
 # Import interface to interact with YouTube
 import youtube_dl
 
 # Import Discord Python API
 import discord
-
-# Import regex API
-import re
 
 # Import functions for asserting bot state
 import discord_slash_commands.helpers.application_context_checks as ctx_check
@@ -309,7 +309,7 @@ async def youtube_play(
         str,
         description="The URL of the video or playlist you wish to have played."
     ),
-    # TODO: add optional start timestamp to command 
+    # TODO: add optional start timestamp to command
     normalize: discord.Option(
         bool,
         description="Make volume more consistent throughout audio.",
