@@ -48,5 +48,10 @@ touch .env
 # BOT_TOKEN = $my_stable_bot_token
 # BOT_OWNER_DISCORD_USER_ID = $my_discord_user_id
 
+# Add audio for the bot to play on enter and exit
+# In this directory, add:
+# - bark_high.mp3, the sound played on voice chat enter
+# - bark_low.mp3, the sound played on voice chat exit
+
 # Run the bot
 python3 main.py
