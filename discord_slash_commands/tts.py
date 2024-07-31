@@ -266,6 +266,7 @@ def make_tts_audio_file(
     Args:
         text_to_say: The text to say in TTS
         language_to_speak: The language to speak text_to_say in
+        normalize: Make the volume more consistent throughout the audio
 
     Returns:
         A string containing the path to the file containing to TTS audio.
@@ -329,6 +330,7 @@ async def tts_play(
     Args:
         ctx: The context this SlashCommand was called under
         text_to_say: The text to say in voice chat
+        normalize: Make the volume more consistent throughout the audio
     """
     # Determine if the author's arguments are valid
     err_msg = ""
