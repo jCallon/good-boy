@@ -26,6 +26,9 @@ from discord_slash_commands.helpers import file_cache
 # Import helper for queueing audio in voice chat
 from discord_slash_commands.helpers import audio_queue
 
+# Import user permissions for each guild
+import discord_slash_commands.helpers.user_permission as user_perm
+
 #==============================================================================#
 # Define underlying structure                                                  #
 #==============================================================================#
@@ -218,8 +221,6 @@ class YoutubeFile():
         # The url was valid, set self.video_file_name and derive
         # self.audio_file_name from it (the same file name, but ending in .mp3)
         debug_messages = self.logger.get_messages("debug")
-        # TODO: debug why sometimes you need to retry the command and then it works
-        print(debug_messages)
         self.video_file_name = debug_messages[1]
         index_of_last_period = self.video_file_name.rfind(".")
         self.audio_file_name = self.video_file_name[0:index_of_last_period] \
@@ -295,11 +296,62 @@ class YoutubeFile():
         # There was no issue and the file was downloaded, return success
         return True
 
+    def queue(self, audio_queue_list : discord.Cog, normalize : bool, ctx) -> str:
+        """
+
+        Returns:
+            Status message.
+        """
+        # If there was an issue getting information from youtube-dl for this
+        # video, tell the author and don't bother downloading or queuing it
+        if self.logger.had_error is True:
+            return f"\nError retrieving: {self.url}"
+
+        # If even before downloading the video, we can see it's over 30 minutes
+        # long, deny downloading/playing it, and tell author why
+        if self.length_in_seconds > 30*60:
+            return f"\nRefusing to download: {self.url}, it's longer max allowed video length of 30 minutes."
+
+        # Download the audio file for this video if it's not already downloaded to intermediate cache, then move to youtube file cache
+        # TODO: Use different thread to download and queue audio?
+        #       Could that cause deletion issues?
+        # TODO: with the addition of the normalize option, it's possible the predownloaded audio won't have matching normalization
+        if not youtube_file_cache.file_exists(self.audio_file_name) and \
+            (
+                self.download(file_cache.CACHE_DIR) is False or \
+                youtube_file_cache.add(
+                    file_name = self.audio_file_name,
+                    normalize_audio = normalize
+                ) is False
+            ):
+            return f"\nError downloading: {self.url}"
+
+        # Add the downloaded file to audio queue
+        audio_queue_element_id = audio_queue_list.add(
+            ctx = ctx,
+            description = self.video_file_name,
+            file_path = f"{youtube_file_cache.directory}/" \
+                + f"{self.audio_file_name}",
+            priority = audio_queue.LOW_PRIORITY
+        )
+        if audio_queue_element_id == -1:
+            return f"\nError queuing: {self.url}"
+
+        # Audio was sucessfully added to queue
+        num_files_ahead = audio_queue_list.get_index_in_queue(
+            audio_queue_element_id = audio_queue_element_id,
+            priority = audio_queue.LOW_PRIORITY
+        )
+        return f"\nSuccessfully queued: {self.url} as ID " \
+            + f"`{audio_queue_element_id}`." \
+            + f"\nThere are `{num_files_ahead}` other low-priority (priority " \
+            + f"level `{audio_queue.LOW_PRIORITY}`) audio files ahead of you."
+
 
 
 @youtube_slash_command_group.command(
     name="play",
-    description="Make me play (normalized) audio from YouTube in voice chat.",
+    description="Make me play audio of a single YouTube video in voice chat.",
     checks=[
         ctx_check.assert_bot_is_in_voice_chat,
         ctx_check.assert_bot_is_in_same_voice_chat_as_author,
@@ -309,18 +361,23 @@ async def youtube_play(
     ctx,
     url: discord.Option(
         str,
-        description="The URL of the video or playlist you wish to have played."
+        description="The URL of the YouTube video you wish to have played."
     ),
     # TODO: add optional start timestamp to command
+    #timestamp: discord.Option(
+    #    str,
+    #    description="At what timestamp to start playing the audio."
+    #    default="0:00:00"
+    #),
     normalize: discord.Option(
         bool,
         description="Make volume more consistent throughout audio.",
         default=False
     )
 ):
-    """Tell bot to play audio from a YouTube video or playlist in voice chat.
+    """Tell bot to play audio from single YouTube video in voice chat.
 
-    Download the YouTube video(s) specified by url into cache, and play them in
+    Download the YouTube video specified by url into cache, and play them in
     voice chat.
 
     Args:
@@ -330,125 +387,172 @@ async def youtube_play(
     """
     # If the URL came from someone's URL bar, reformat it to make API happy
     # by removing all GET parameters but v, which gives the video ID
-    if url.startswith("https://www.youtube.com/") and \
-        not url.startswith("https://www.youtube.com/playlist?list="):
+    if url.startswith("https://www.youtube.com/"):
         # Find the video ID, which is Base 64 + '-' and '_'
         # https://en.wikipedia.org/wiki/Base64
         match = re.findall(
             pattern="v=[A-Z,a-z,0-9,+/=-_]+",
             string=url
         )
-        if len(match) == 0:
-            ctx.respond(
-                ephemeral=True,
-                content="Please use a URL that gives the video ID (v=...)."
-            )
-            return False
         # Reformat the video URL to just be youtube + the video ID
-        url = "https://youtu.be/" + match[0][2:]
+        if len(match) > 0:
+            url = "https://youtu.be/" + match[0][2:]
 
     # Check validity of URL
-    if not (url.startswith("https://youtu.be/") or \
-        url.startswith("https://www.youtube.com/playlist?list=")):
+    if not url.startswith("https://youtu.be/"):
         await ctx.respond(
             ephemeral=True,
-            content="To play a single video, use a URL starting with " \
-                + "`https://youtu.be/`, generated by the share button." \
-                + "\nTo play a playlist, use a URL starting with " \
-                + "`https://www.youtube.com/playlist?list=`, " \
-                + "shown in your navigation bar when viewing the playlist " \
-                + "(but not a specific video within it)." \
+            content="Please use a YouTube link with the video ID included.\n"
+                + "The URL generated by the 'Share' button should be " \
+                + "guarateed to have this."
         )
         return False
-
-    # Create empty list of files to be played
-    youtube_file_list = []
-
-    # Fill empty list, how many files to play will be determined by if the url
-    # was a playlist or a single video
-    if "/playlist?" not in url:
-        youtube_file_list.append(YoutubeFile(url))
-    else:
-        ctx.respond(
-            ephemeral=True,
-            content="Sorry, I don't support playing playlists yet."
-        )
-        return False
-        # TODO: support this
-        #youtube_dl_options = {
-        #    # Do not download the video and do not write anything to disk
-        #    "simulate" : "",
-        #    # Do not extract the videos of a playlist, only list them
-        #    "flat-playlist" : "",
-        #}
-        ## Run youtube-dl with youtube_dl_options
-        #with youtube_dl.YoutubeDL(ydl_opts) as ydl:
-        #    ydl.download(url)
 
     # Tell the user to wait, downloads and file IO take time
     await ctx.respond(
         ephemeral=True,
-        content="Please wait... trying to download and normalize the single " \
-            + f"video or playlist pointed to by `{url}`." \
+        content=f"Downloading the video pointed to by `{url}`..."
     )
 
-    # Get AudioQueue cog
-    audio_queue_list = ctx.bot.get_cog("AudioQueueList")
-
-    # Download and queue all audio files
-    rsp = ""
-    for youtube_file in youtube_file_list:
-        # If there was an issue getting information from youtube-dl for this
-        # video, tell the author and don't bother downloading or queuing it
-        if youtube_file.logger.had_error is True:
-            rsp += f"\nError retrieving: {youtube_file.url}"
-            continue
-
-        # If even before downloading the video, we can see it's over 30 minutes
-        # long, deny downloading/playing it, and tell author why
-        if youtube_file.length_in_seconds > 30*60:
-            rsp += f"\nRefusing to play: {youtube_file.url}, it's longer " \
-                + "max allowed video length of 30 minutes."
-            continue
-
-        # Download the audio file for this video if it's not already downloaded
-        # TODO: Use different thread to download and queue audio?
-        #       Could that cause deletion issues?
-        if not youtube_file_cache.file_exists(youtube_file.audio_file_name):
-            # TODO: with the addition of the normalize option, it's possible
-            # the predownloaded audio won't have matching normalization
-            # Download to intermediate cache, then move to youtube file cache
-            if youtube_file.download(file_cache.CACHE_DIR) is False or \
-                youtube_file_cache.add(
-                    file_name = youtube_file.audio_file_name,
-                    normalize_audio = normalize
-                ) is False:
-                rsp += f"\nError downloading: {youtube_file.url}"
-                continue
-
-        # Add the downloaded file to audio queue
-        audio_queue_element_id = audio_queue_list.add(
-            ctx = ctx,
-            description = youtube_file.video_file_name,
-            file_path = f"{youtube_file_cache.directory}/" \
-                + f"{youtube_file.audio_file_name}",
-            priority = audio_queue.LOW_PRIORITY
+    # Download/queue audio
+    youtube_file = YoutubeFile(url=url)
+    await ctx.respond(
+        ephemeral=True,
+        content=youtube_file.queue(
+            audio_queue_list=ctx.bot.get_cog("AudioQueueList"),
+            normalize=normalize,
+            ctx=ctx
         )
-        if audio_queue_element_id == -1:
-            rsp += f"\nError queuing: {youtube_file.url}" \
-                + "\nWill stop adding more audio to my audio queue."
-            break
+    )
+    return True
 
-        # Audio was sucessfully added to queue
-        num_files_ahead = audio_queue_list.get_index_in_queue(
-            audio_queue_element_id = audio_queue_element_id,
-            priority = audio_queue.LOW_PRIORITY
+
+
+@youtube_slash_command_group.command(
+    name="playlist",
+    description="Make me play audio of a YouTube playlist in voice chat.",
+    checks=[
+        ctx_check.assert_bot_is_in_voice_chat,
+        ctx_check.assert_bot_is_in_same_voice_chat_as_author,
+    ]
+)
+async def youtube_playlist(
+    ctx,
+    url: discord.Option(
+        str,
+        description="The URL of the YouTube playlist you wish to have played."
+    ),
+    # TODO: add options for order and indexes
+    normalize: discord.Option(
+        bool,
+        description="Make volume more consistent throughout audio.",
+        default=False
+    )
+):
+    """Tell bot to play audio from a YouTube playlist in voice chat.
+
+    Download the YouTube videos specified by url into cache, and play them in
+    voice chat.
+
+    Args:
+        ctx: The context this SlashCommand was called under
+        url: The URL for the YouTube playlist to download and play
+        normalize: Make the volume more consistent throughout the audio
+    """
+    if ctx.author.id == user_perm.get_bot_owner_discord_user_id() == False:
+        await ctx.respond(
+            ephemeral=True,
+            content="This command is in alpha!\n"
+                + "Please let the bot owner know any issues you have!"
         )
-        rsp += f"\nSuccessfully queued: {youtube_file.url} as ID " \
-            + f"`{audio_queue_element_id}`." \
-            + f"\nThere are `{num_files_ahead}` other low-priority (priority " \
-            + f"level `{audio_queue.LOW_PRIORITY}`) audio files ahead of you."
 
-    # Tell author status of all downloading and queuing
-    await ctx.respond(ephemeral=True, content=rsp)
+    # The playlist format must follow:
+    #   https://www.youtube.com/...list=list_ID
+    # And the playlist must be made unlisted or public,
+    # using the page pointed to by
+    #   https://www.youtube.com/playlist?list=list_ID
+    # https://github.com/ytdl-org/youtube-dl/issues/32814
+
+    # Check validity of URL
+    #if not url.startswith("https://www.youtube.com/playlist?list=")):
+    #    await ctx.respond(
+    #        ephemeral=True,
+    #        content="To play a single video, use a URL starting with " \
+    #            + "`https://youtu.be/`, generated by the share button." \
+    #            + "\nTo play a playlist, use a URL starting with " \
+    #            + "`https://www.youtube.com/playlist?list=`, " \
+    #            + "shown in your navigation bar when viewing the playlist " \
+    #            + "(but not a specific video within it)." \
+    #    )
+    #    return False
+
+    # Create empty list of files to be played
+    youtube_file_list = []
+
+    # Tell the user to wait, downloads and file IO take time
+    await ctx.respond(
+        ephemeral=True,
+        content=f"Downloading the playlist pointed to by `{url}`..."
+    )
+
+    # Get every video to download
+    logger = YoutubeDlLogger()
+    youtube_dl_options = {
+        # Do not download the video files
+        "simulate" : True,
+        # TODO
+        "noplaylist" : False,
+        # Do not extract the videos of a playlist, only list them
+        #"extract_flat" : True,
+        # Do not print (most) messages to stdout
+        "quiet" : True,
+        # Catch youtube-dl output in a custom logger class
+        "logger" : logger,
+    } 
+    with youtube_dl.YoutubeDL(youtube_dl_options) as ydl:
+        try:
+            print(url)
+            ydl.download([url,])
+        except youtube_dl.utils.DownloadError:
+            # There was an issue accessing self.url, print verbose logs
+            logger.print_log()
+            return False
+
+    # Output looks like:
+    # debug: [youtube:tab] Downloading playlist PL9_sHyydmMlf4RWuc0tWKkOF9xvxvmWET - add --no-playlist to just download video Oud9Gzy89dw
+    # debug: [youtube:tab] PL9_sHyydmMlf4RWuc0tWKkOF9xvxvmWET: Downloading webpage
+    # debug: [download] Downloading playlist: chill
+    # debug: [youtube:tab] playlist chill: Downloading 14 videos
+    # debug: [download] Downloading video 1 of 14
+    # debug: [youtube] Oud9Gzy89dw: Downloading webpage
+    # debug: [download] Downloading video 2 of 14      
+    # debug: [youtube] BEcHG4cRILI: Downloading webpage
+    # ...
+    # debug: [download] Finished downloading playlist: chill
+
+    logger.print_log()
+
+    # Create list of video ids
+    debug_messages = logger.get_messages("debug")
+    num_videos = int(re.findall(pattern="[0-9]+", string=debug_messages[3])[0])
+    video_id_list = []
+    for i in range(num_videos):
+        line = debug_messages[5 + (i * 2)]
+        video_id_list.append(line.split()[1][:-1])
+
+    # Download/queue audio
+    # TODO: only print status if there was issue to void clutter, say when done after loop is done
+    for video_id in video_id_list:
+        youtube_file = YoutubeFile(url="https://youtu.be/" + video_id)
+        await ctx.respond(
+            ephemeral=True,
+            content=youtube_file.queue(
+                audio_queue_list=ctx.bot.get_cog("AudioQueueList"),
+                normalize=normalize,
+                ctx=ctx
+            )
+        )
+
+    await ctx.respond(ephemeral=True, content="Done!")
+
     return True
